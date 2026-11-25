@@ -1,0 +1,6 @@
+MX-1 protocol — synthetic study plan
+Source ID: protocol. Study family: mx1-protocol.
+
+This plan concerns a new fictional cohort. The planned endpoint is each participant's first failed monthly task after a successful baseline task.
+
+Our objective is to compare the 12-month risk of first task failure in adults who passed the task at baseline and had baseline MX-1 at or above 10 mock units/L with the risk in those below 10 mock units/L. Recruitment has yet to begin.

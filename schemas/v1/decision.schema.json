@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MX-1 evidence decision, version 1",
+  "description": "One decision for one question. Each input passage occurs once in ledger order by passage ID. eligible_families contains the sorted unique study families whose applicability is direct.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["question_id", "question_text", "question_scope", "status", "reason", "eligible_families", "ledger"],
+  "properties": {
+    "question_id": {"$ref": "casebook.schema.json#/$defs/Intent"},
+    "question_text": {"$ref": "casebook.schema.json#/$defs/Text"},
+    "question_scope": {"$ref": "casebook.schema.json#/$defs/Scope"},
+    "status": {"type": "string"},
+    "reason": {"type": "string"},
+    "eligible_families": {
+      "type": "array", "items": {"$ref": "casebook.schema.json#/$defs/Text"}, "uniqueItems": true
+    },
+    "ledger": {"type": "array", "items": {"$ref": "#/$defs/LedgerEntry"}}
+  },
+  "if": {"properties": {"question_id": {"const": "prognosis"}}},
+  "then": {"properties": {"question_scope": {"properties": {"intent": {"const": "prognosis"}}}}},
+  "else": {"properties": {"question_scope": {"properties": {"intent": {"const": "intervention"}}}}},
+  "oneOf": [
+    {"properties": {"question_id": {"const": "prognosis"}, "status": {"const": "association_observed"}, "reason": {"const": "single_family_association"}}},
+    {"properties": {"question_id": {"const": "prognosis"}, "status": {"const": "association_uncertain"}, "reason": {"enum": ["interval_includes_null", "interval_touches_null"]}}},
+    {"properties": {"question_id": {"const": "intervention"}, "status": {"const": "effect_uncertain"}, "reason": {"enum": ["interval_includes_null", "interval_touches_null"]}}},
+    {"properties": {"question_id": {"const": "intervention"}, "status": {"const": "effect_estimate_reported"}, "reason": {"const": "single_family_intervention_result"}}},
+    {"properties": {"status": {"const": "insufficient"}, "reason": {"enum": ["no_direct_result", "multiple_families_require_review", "conflicting_family_estimates"]}}}
+  ],
+  "$defs": {
+    "Applicability": {
+      "description": "Reason assigned to a passage for a particular question.",
+      "enum": [
+        "direct", "related_question", "population_mismatch", "outcome_mismatch",
+        "time_horizon_mismatch", "no_result", "estimate_missing", "unreviewed", "uncertain",
+        "contrast_mismatch", "event_coding_mismatch"
+      ]
+    },
+    "LedgerEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passage_id", "source_id", "source_file", "family_id", "reason", "quote", "start", "end", "source_sha256", "estimate", "scope"],
+      "properties": {
+        "passage_id": {"$ref": "casebook.schema.json#/$defs/Text"},
+        "source_id": {"$ref": "casebook.schema.json#/$defs/Text"},
+        "source_file": {"$ref": "casebook.schema.json#/$defs/SourceFile"},
+        "family_id": {"$ref": "casebook.schema.json#/$defs/Text"},
+        "reason": {"$ref": "#/$defs/Applicability"},
+        "quote": {"$ref": "casebook.schema.json#/$defs/Text"},
+        "start": {"$ref": "casebook.schema.json#/$defs/Offset"},
+        "end": {"$ref": "casebook.schema.json#/$defs/Offset"},
+        "source_sha256": {"$ref": "casebook.schema.json#/$defs/Digest"},
+        "estimate": {"$ref": "casebook.schema.json#/$defs/Estimate"},
+        "scope": {"$ref": "casebook.schema.json#/$defs/Scope"}
+      }
+    }
+  }
+}

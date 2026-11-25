@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "canonical_output_sha256": {
+    "baseline": "07412cf7ef5fbd71359b2978431d16e109556f5477c2eaa4db1a17ba200fb7fd",
+    "without_cohort_result": "6f45e8df00d0addcdc7aa6746f01b3319c00d1e53dad7fd3e27d0ce24f5abb1a"
+  },
+  "baseline": {
+    "prognosis": {
+      "status": "association_observed",
+      "reason": "single_family_association",
+      "eligible_families": ["mx1-cohort"],
+      "ledger": {
+        "cohort-result": "direct",
+        "protocol-objective": "no_result",
+        "trial-marker": "related_question",
+        "trial-result": "related_question"
+      }
+    },
+    "intervention": {
+      "status": "effect_uncertain",
+      "reason": "interval_includes_null",
+      "eligible_families": ["mx1-trial"],
+      "ledger": {
+        "cohort-result": "related_question",
+        "protocol-objective": "no_result",
+        "trial-marker": "outcome_mismatch",
+        "trial-result": "direct"
+      }
+    }
+  },
+  "without_cohort_result": {
+    "status": "insufficient",
+    "reason": "no_direct_result",
+    "eligible_families": [],
+    "ledger": {
+      "protocol-objective": "no_result",
+      "trial-marker": "related_question",
+      "trial-result": "related_question"
+    }
+  },
+  "duplicate_cohort_report": {
+    "status": "association_observed",
+    "reason": "single_family_association",
+    "eligible_families": ["mx1-cohort"],
+    "ledger": {
+      "cohort-repeat-result": "direct",
+      "cohort-result": "direct",
+      "protocol-objective": "no_result",
+      "trial-marker": "related_question",
+      "trial-result": "related_question"
+    }
+  }
+}

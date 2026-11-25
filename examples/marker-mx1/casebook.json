@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "evidence_origin": "synthetic",
+  "questions": [
+    {
+      "id": "prognosis",
+      "text": "In adults who passed the task at baseline, was baseline MX-1 at or above 10 mock units/L, compared with below 10, associated with the risk of a first task failure within 12 months?",
+      "scope": {
+        "intent": "prognosis",
+        "population": "adults_passing_baseline_task",
+        "outcome": "first_task_failure",
+        "event_coding": "adverse",
+        "months": 12,
+        "factor": "baseline_mx1_at_or_above_10_mock_units_per_l",
+        "comparator": "baseline_mx1_below_10_mock_units_per_l",
+        "direction": "higher_vs_lower"
+      }
+    },
+    {
+      "id": "intervention",
+      "text": "In adults who passed the task at baseline, did random assignment to program K, compared with monitoring alone, change the risk of a first task failure within 12 months?",
+      "scope": {
+        "intent": "intervention",
+        "population": "adults_passing_baseline_task",
+        "outcome": "first_task_failure",
+        "event_coding": "adverse",
+        "months": 12,
+        "factor": "assigned_program_k",
+        "comparator": "assigned_monitoring",
+        "direction": "assigned_vs_control"
+      }
+    }
+  ],
+  "families": [
+    {
+      "id": "mx1-cohort",
+      "label": "Synthetic baseline-marker cohort"
+    },
+    {
+      "id": "mx1-trial",
+      "label": "Synthetic program K trial"
+    },
+    {
+      "id": "mx1-protocol",
+      "label": "Synthetic planned cohort"
+    }
+  ],
+  "sources": [
+    {
+      "id": "cohort",
+      "family_id": "mx1-cohort",
+      "file": "sources/cohort.txt",
+      "sha256": "075f532671635bfb14b82caa6e263c0ebd79dc3fc1088e056ecc35521b4c88b8"
+    },
+    {
+      "id": "trial",
+      "family_id": "mx1-trial",
+      "file": "sources/trial.txt",
+      "sha256": "cf35d5f39adfa5dfe16c28f7e233647b4b2be62fabd3d6e5435622f72f9562c9"
+    },
+    {
+      "id": "protocol",
+      "family_id": "mx1-protocol",
+      "file": "sources/protocol.txt",
+      "sha256": "ddc424a39291a33b0d3a6b5cc5d06ff0584dd82cca9848b824cee3c9414c9c87"
+    }
+  ],
+  "passages": [
+    {
+      "id": "cohort-result",
+      "source_id": "cohort",
+      "start": 385,
+      "end": 706,
+      "quote": "Among adults who passed the task at baseline, 48 of 200 with baseline MX-1 at or above 10 mock units/L and 24 of 200 with baseline MX-1 below 10 mock units/L experienced a first task failure within 12 months. Comparing the higher group with the lower group, the unadjusted risk ratio was 2.00 (95% interval 1.28 to 3.13).",
+      "kind": "result",
+      "review": "reviewed",
+      "scope": {
+        "intent": "prognosis",
+        "population": "adults_passing_baseline_task",
+        "outcome": "first_task_failure",
+        "event_coding": "adverse",
+        "months": 12,
+        "factor": "baseline_mx1_at_or_above_10_mock_units_per_l",
+        "comparator": "baseline_mx1_below_10_mock_units_per_l",
+        "direction": "higher_vs_lower"
+      },
+      "estimate": {
+        "measure": "risk_ratio",
+        "point": 2.0,
+        "low": 1.28,
+        "high": 3.13,
+        "unit": "ratio"
+      }
+    },
+    {
+      "id": "trial-result",
+      "source_id": "trial",
+      "start": 366,
+      "end": 633,
+      "quote": "Among adults who passed the task at baseline, 18 of 150 randomly assigned to program K and 20 of 150 assigned to monitoring alone experienced a first task failure within 12 months. Comparing the groups as assigned, the risk ratio was 0.90 (95% interval 0.50 to 1.63).",
+      "kind": "result",
+      "review": "reviewed",
+      "scope": {
+        "intent": "intervention",
+        "population": "adults_passing_baseline_task",
+        "outcome": "first_task_failure",
+        "event_coding": "adverse",
+        "months": 12,
+        "factor": "assigned_program_k",
+        "comparator": "assigned_monitoring",
+        "direction": "assigned_vs_control"
+      },
+      "estimate": {
+        "measure": "risk_ratio",
+        "point": 0.9,
+        "low": 0.5,
+        "high": 1.63,
+        "unit": "ratio"
+      }
+    },
+    {
+      "id": "trial-marker",
+      "source_id": "trial",
+      "start": 635,
+      "end": 950,
+      "quote": "Among adults who passed the task at baseline, mean change in MX-1 from baseline to month 12 was −3.00 mock units/L in the group assigned to program K and 0.00 mock units/L with monitoring alone. The difference in mean change, program K minus monitoring, was −3.00 mock units/L (95% interval −3.60 to −2.40).",
+      "kind": "result",
+      "review": "reviewed",
+      "scope": {
+        "intent": "intervention",
+        "population": "adults_passing_baseline_task",
+        "outcome": "change_in_mx1",
+        "event_coding": "adverse",
+        "months": 12,
+        "factor": "assigned_program_k",
+        "comparator": "assigned_monitoring",
+        "direction": "assigned_vs_control"
+      },
+      "estimate": {
+        "measure": "mean_difference",
+        "point": -3.0,
+        "low": -3.6,
+        "high": -2.4,
+        "unit": "mock units/L"
+      }
+    },
+    {
+      "id": "protocol-objective",
+      "source_id": "protocol",
+      "start": 236,
+      "end": 471,
+      "quote": "Our objective is to compare the 12-month risk of first task failure in adults who passed the task at baseline and had baseline MX-1 at or above 10 mock units/L with the risk in those below 10 mock units/L. Recruitment has yet to begin.",
+      "kind": "objective",
+      "review": "reviewed",
+      "scope": {
+        "intent": "prognosis",
+        "population": "adults_passing_baseline_task",
+        "outcome": "first_task_failure",
+        "event_coding": "adverse",
+        "months": 12,
+        "factor": "baseline_mx1_at_or_above_10_mock_units_per_l",
+        "comparator": "baseline_mx1_below_10_mock_units_per_l",
+        "direction": "higher_vs_lower"
+      },
+      "estimate": null
+    }
+  ]
+}

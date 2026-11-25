@@ -1,0 +1,10 @@
+MX-1 trial — synthetic study report
+Source ID: trial. Study family: mx1-trial.
+
+We constructed a separate trial of 300 fictional adults who passed a task at baseline. Random assignment allocated 150 to program K and 150 to monitoring alone. Participants repeated the task monthly for 12 months. All completed follow-up and provided a 12-month marker measurement.
+
+Among adults who passed the task at baseline, 18 of 150 randomly assigned to program K and 20 of 150 assigned to monitoring alone experienced a first task failure within 12 months. Comparing the groups as assigned, the risk ratio was 0.90 (95% interval 0.50 to 1.63).
+
+Among adults who passed the task at baseline, mean change in MX-1 from baseline to month 12 was −3.00 mock units/L in the group assigned to program K and 0.00 mock units/L with monitoring alone. The difference in mean change, program K minus monitoring, was −3.00 mock units/L (95% interval −3.60 to −2.40).
+
+A task failure counted as an adverse event. For the marker analysis, larger increases in MX-1 were coded as adverse by convention. The marker measurement and a task failure were separate endpoints. Both groups had a standard deviation of 2.65 mock units/L for change. Both intervals are two-sided normal approximations, on the log scale for the risk ratio and the original scale for the mean difference.

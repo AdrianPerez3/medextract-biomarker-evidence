@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "medextract-evidence-dossier"
+version = "0.1.0rc1"
+description = "Offline Python CLI and MCP server for reviewing pre-annotated synthetic research evidence, tracing source passages and verifying signed review bundles."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "MedExtract Evidence Dossier contributors"}]
+keywords = ["evidence review", "evidence provenance", "model context protocol", "reproducible research", "synthetic data"]
+classifiers = [
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+license = "MIT AND CC-BY-4.0"
+license-files = ["LICENSE", "LICENSES/CC-BY-4.0.txt"]
+
+[project.scripts]
+medextract-dossier = "medextract_dossier.__main__:main"
+medextract-dossier-mcp = "medextract_dossier.mcp_config:main"
+
+[project.optional-dependencies]
+handoff = ["cryptography>=43"]
+mcp = ["cryptography>=43", "mcp>=1.27.2,<2", "pydantic>=2.11,<3", "jsonschema>=4.20", "anyio>=4.5"]
+
+[tool.hatch.build]
+# Each file in a local release candidate has been reviewed individually.
+include = [
+    "/.gitattributes",
+    "/.gitignore",
+    "/CITATION.cff",
+    "/CONTRIBUTING.md",
+    "/LICENSE",
+    "/LICENSES/CC-BY-4.0.txt",
+    "/README.md",
+    "/SECURITY.md",
+    "/docs/operator-guide.md",
+    "/examples/marker-mx1/PROVENANCE.md",
+    "/examples/marker-mx1/casebook.json",
+    "/examples/marker-mx1/expected.json",
+    "/examples/marker-mx1/sources/cohort.txt",
+    "/examples/marker-mx1/sources/protocol.txt",
+    "/examples/marker-mx1/sources/trial.txt",
+    "/medextract_dossier/__init__.py",
+    "/medextract_dossier/__main__.py",
+    "/medextract_dossier/bundle_export.py",
+    "/medextract_dossier/bundle_format.py",
+    "/medextract_dossier/bundle_verify.py",
+    "/medextract_dossier/comparison.py",
+    "/medextract_dossier/decision.py",
+    "/medextract_dossier/evidence.py",
+    "/medextract_dossier/mcp_config.py",
+    "/medextract_dossier/mcp_server.py",
+    "/medextract_dossier/presentation.py",
+    "/medextract_dossier/questions.py",
+    "/medextract_dossier/review_store.py",
+    "/medextract_dossier/service.py",
+    "/medextract_dossier/signing.py",
+    "/pyproject.toml",
+    "/requirements-dev.txt",
+    "/requirements-handoff.txt",
+    "/requirements-mcp.txt",
+    "/schemas/v1/casebook.schema.json",
+    "/schemas/v1/comparison.schema.json",
+    "/schemas/v1/decision.schema.json",
+    "/scripts/check_installed.py",
+    "/tests/test_adapter_entrypoints.py",
+    "/tests/test_bundle_export.py",
+    "/tests/test_bundle_signing.py",
+    "/tests/test_bundle_verify.py",
+    "/tests/test_bundle_workflow.py",
+    "/tests/test_decision.py",
+    "/tests/test_distribution.py",
+    "/tests/test_example_contract.py",
+    "/tests/test_example_workflow.py",
+    "/tests/test_mcp_transport.py",
+    "/tests/test_mcp_workflow.py",
+    "/tests/test_questions.py",
+    "/tests/test_schemas.py",
+    "/tests/test_service.py",
+    "/tests/test_stored_review_cli.py",
+]
+
+[tool.hatch.build.targets.wheel]
+exclude = ["/tests", "/scripts", "/docs", "/.gitattributes", "/.gitignore", "/CITATION.cff", "/CONTRIBUTING.md", "/LICENSE", "/LICENSES", "/README.md", "/SECURITY.md", "/pyproject.toml", "/requirements-*.txt"]
+
+[tool.hatch.build.targets.wheel.sources]
+"examples/marker-mx1" = "medextract_dossier/data/marker-mx1"
+"schemas/v1" = "medextract_dossier/schemas/v1"

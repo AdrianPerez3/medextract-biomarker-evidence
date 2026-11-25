@@ -1,0 +1,8 @@
+MX-1 cohort — synthetic study report
+Source ID: cohort. Study family: mx1-cohort.
+
+We constructed a cohort of 400 fictional adults who passed a task at baseline. Each had a baseline MX-1 measurement in mock units/L and then repeated the task monthly for 12 months. An event was the first failed task during follow-up. Every participant completed follow-up. No program was assigned.
+
+Among adults who passed the task at baseline, 48 of 200 with baseline MX-1 at or above 10 mock units/L and 24 of 200 with baseline MX-1 below 10 mock units/L experienced a first task failure within 12 months. Comparing the higher group with the lower group, the unadjusted risk ratio was 2.00 (95% interval 1.28 to 3.13).
+
+The risks refer to participants with at least one failure. The two-sided log risk-ratio interval uses a normal approximation. The comparison describes an association between the baseline measurement and subsequent failure in this cohort.

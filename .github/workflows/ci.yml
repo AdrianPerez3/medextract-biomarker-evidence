@@ -1,0 +1,44 @@
+name: Test and verify installed wheel
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, python: "3.11", sdk: "1.27.2"}
+          - {os: ubuntu-latest, python: "3.12", sdk: "1.30.0"}
+          - {os: ubuntu-latest, python: "3.13", sdk: "1.30.0"}
+          - {os: ubuntu-latest, python: "3.14", sdk: "1.30.0"}
+          - {os: macos-latest, python: "3.11", sdk: "1.30.0"}
+    env:
+      MCP_SDK: ${{ matrix.sdk }}
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run source and archive checks
+        run: |
+          python -m pip install -r requirements-dev.txt "mcp==$MCP_SDK"
+          python -m pytest -q
+          python -m hatchling build
+          python -I tests/test_distribution.py dist
+      - name: Exercise the installed CLI and MCP entry points
+        run: |
+          wheel=$(echo "$GITHUB_WORKSPACE"/dist/*.whl)
+          cd "$RUNNER_TEMP"
+          python -m venv wheel-env
+          wheel-env/bin/python -m pip install --no-deps "$wheel"
+          wheel-env/bin/python -I "$GITHUB_WORKSPACE/scripts/check_installed.py" --core-only
+          wheel-env/bin/python -m pip install "${wheel}[mcp]" "mcp==$MCP_SDK"
+          wheel-env/bin/python -m pip check
+          wheel-env/bin/python -I "$GITHUB_WORKSPACE/scripts/check_installed.py"

@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MX-1 evidence casebook, version 1",
+  "description": "Each collection has unique IDs within that collection. The offline loader resolves references, compares estimates with their limits and verifies source bytes and quotes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "evidence_origin", "questions", "families", "sources", "passages"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "evidence_origin": {"const": "synthetic"},
+    "questions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/Question"}},
+    "families": {"type": "array", "items": {"$ref": "#/$defs/StudyFamily"}},
+    "sources": {"type": "array", "items": {"$ref": "#/$defs/Source"}},
+    "passages": {"type": "array", "items": {"$ref": "#/$defs/Passage"}}
+  },
+  "$defs": {
+    "Text": {"type": "string", "pattern": "\\S"},
+    "Intent": {"enum": ["prognosis", "intervention"]},
+    "Digest": {"type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[0-9a-f]{64}$"},
+    "SourceFile": {"type": "string", "pattern": "^sources/[^/\\\\\\u0000]+\\.txt(?![\\s\\S])"},
+    "Offset": {"type": "integer", "minimum": 0},
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intent", "population", "factor", "comparator", "outcome", "event_coding", "direction", "months"],
+      "properties": {
+        "intent": {"$ref": "#/$defs/Intent"},
+        "population": {"$ref": "#/$defs/Text"},
+        "factor": {
+          "$ref": "#/$defs/Text",
+          "description": "Prespecified exposure or assigned intervention, distinct from the comparator."
+        },
+        "comparator": {"$ref": "#/$defs/Text"},
+        "outcome": {"$ref": "#/$defs/Text"},
+        "event_coding": {
+          "enum": ["adverse", "favorable"],
+          "description": "Meaning of the counted event or an increase on the measured outcome scale."
+        },
+        "direction": {"enum": ["higher_vs_lower", "assigned_vs_control"]},
+        "months": {"type": "integer", "minimum": 0}
+      },
+      "if": {"properties": {"intent": {"const": "prognosis"}}},
+      "then": {"properties": {"direction": {"const": "higher_vs_lower"}}},
+      "else": {"properties": {"direction": {"const": "assigned_vs_control"}}}
+    },
+    "Question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "scope"],
+      "properties": {
+        "id": {"$ref": "#/$defs/Intent"},
+        "text": {"$ref": "#/$defs/Text"},
+        "scope": {"$ref": "#/$defs/Scope"}
+      },
+      "if": {"properties": {"id": {"const": "prognosis"}}},
+      "then": {"properties": {"scope": {"properties": {"intent": {"const": "prognosis"}}}}},
+      "else": {"properties": {"scope": {"properties": {"intent": {"const": "intervention"}}}}}
+    },
+    "StudyFamily": {
+      "description": "One study identity shared by its reports.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {"id": {"$ref": "#/$defs/Text"}, "label": {"$ref": "#/$defs/Text"}}
+    },
+    "Source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "family_id", "file", "sha256"],
+      "properties": {
+        "id": {"$ref": "#/$defs/Text"},
+        "family_id": {"$ref": "#/$defs/Text", "description": "ID of a StudyFamily."},
+        "file": {"$ref": "#/$defs/SourceFile"},
+        "sha256": {"$ref": "#/$defs/Digest", "description": "SHA-256 of the complete source file as stored."}
+      }
+    },
+    "Estimate": {
+      "type": ["object", "null"],
+      "description": "Point estimate and two-sided 95% confidence limits in the stated unit. The offline loader enforces low <= point <= high. Null means no extracted estimate.",
+      "additionalProperties": false,
+      "required": ["measure", "point", "low", "high", "unit"],
+      "properties": {
+        "measure": {"enum": ["risk_ratio", "mean_difference"]},
+        "point": {"type": "number"},
+        "low": {"type": "number"},
+        "high": {"type": "number"},
+        "unit": {"$ref": "#/$defs/Text"}
+      },
+      "if": {"type": "object", "properties": {"measure": {"const": "risk_ratio"}}},
+      "then": {
+        "properties": {
+          "unit": {"const": "ratio"}, "low": {"minimum": 0},
+          "point": {"minimum": 0}, "high": {"minimum": 0}
+        }
+      }
+    },
+    "Passage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source_id", "start", "end", "quote", "kind", "review", "scope", "estimate"],
+      "properties": {
+        "id": {"$ref": "#/$defs/Text"},
+        "source_id": {"$ref": "#/$defs/Text", "description": "ID of the Source that binds the locator to exact bytes."},
+        "start": {"$ref": "#/$defs/Offset", "description": "Inclusive UTF-8 byte offset from the start of the source."},
+        "end": {"$ref": "#/$defs/Offset", "description": "Exclusive UTF-8 byte offset, strictly greater than start."},
+        "quote": {"$ref": "#/$defs/Text", "description": "Exact UTF-8 decoding of the source bytes in [start, end)."},
+        "kind": {"enum": ["result", "objective"]},
+        "review": {"enum": ["reviewed", "unreviewed"]},
+        "scope": {"$ref": "#/$defs/Scope"},
+        "estimate": {"$ref": "#/$defs/Estimate"}
+      },
+      "if": {"properties": {"kind": {"const": "objective"}}},
+      "then": {"properties": {"estimate": {"type": "null"}}}
+    }
+  }
+}
