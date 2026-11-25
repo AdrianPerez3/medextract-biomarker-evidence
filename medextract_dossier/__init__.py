@@ -1,1 +1,1 @@
-"""Offline, passage-level review of synthetic research questions."""
+"""Search scientific literature and replay passage-level evidence reviews."""

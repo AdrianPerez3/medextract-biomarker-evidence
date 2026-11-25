@@ -159,7 +159,8 @@ async def test_discovery_lists_only_the_public_contract(connect):
             "dossier://receipts/{receipt_id}": "application/json",
         }
         opened = await completed(session, BUILD)
-        assert opened["evidence_origin"] == "synthetic"
+        assert opened["evidence_origin"] == "published"
+        assert [item["status"] for item in opened["decisions"]] == ["effect_estimate_reported"]
 
 
 async def test_producer_exports_the_exact_review_seen_by_the_client(tmp_path, connect):

@@ -1,6 +1,6 @@
 # Contributing
 
-Start with the bundled MX-1 casebook and Python 3.11 or later on macOS or Linux. In a fresh checkout, run:
+Start with Python 3.11 or later on macOS or Linux. The default casebook reviews a published trial. The MX-1 fixture and mocked provider responses keep regression tests deterministic and offline.
 
 ```sh
 python3 -m venv .venv
@@ -28,4 +28,4 @@ wheel=$(echo dist/*.whl)
 
 Use an empty `dist/` for this example so the glob selects a single wheel. The check generates a temporary signing key, verifies a signed review and checks how verification handles an edited report. CI also exercises the dependency-free install and compares a directly built wheel with one rebuilt from the source archive.
 
-Project code, schemas and documentation use MIT. Contributions to the fictional MX-1 example use CC BY 4.0 and must have documented origins. [License and attribution](README.md#license-and-attribution)
+Project code, schemas and documentation use MIT. Contributions to the fictional MX-1 fixture use CC BY 4.0. For a published example, document the primary source, version, exact passage, reuse rights and attribution. Exercise search errors and restricted full text without adding third-party corpora or patient records. [License and attribution](README.md#license-and-attribution)

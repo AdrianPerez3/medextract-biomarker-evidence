@@ -1,4 +1,4 @@
-"""Run both research questions against a validated example and display the evidence."""
+"""Search published research, read paper passages, or replay a reviewed casebook."""
 from __future__ import annotations
 
 import argparse
@@ -27,7 +27,7 @@ def _handoff(command: str, arguments: list[str]) -> int:
         parser.add_argument("--private-key", type=Path, required=True)
         parser.add_argument("--public-key", type=Path, required=True)
     elif command == "export":
-        parser.description = "Export the synthetic review and sign the manifest."
+        parser.description = "Export the reviewed casebook and sign the manifest."
         parser.add_argument("example", nargs="?", type=Path, help="current example directory for an immediate export")
         parser.add_argument("--review-store", type=Path, help="directory containing a previously frozen review")
         parser.add_argument("--review-id", help="identifier returned by build --review-store")
@@ -95,8 +95,40 @@ def _handoff(command: str, arguments: list[str]) -> int:
     return 0
 
 
+def _literature(command: str, arguments: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog=f"medextract-dossier {command}")
+    if command == "research":
+        parser.description = "Search Europe PMC and PubMed for published literature."
+        parser.add_argument("question", help="population-level research question")
+        parser.add_argument("--terms", help="search expression sent to the providers (defaults to the question)")
+        parser.add_argument("--limit", type=int, default=5, help="maximum records returned (1–20)")
+    else:
+        parser.description = "Locate relevant passages in openly licensed paper text from Europe PMC."
+        parser.add_argument("pmcid", help="PubMed Central identifier, for example PMC followed by digits")
+        parser.add_argument("--terms", required=True, help="words to locate within the paper")
+        parser.add_argument("--limit", type=int, default=3, help="maximum passages (1–5)")
+    args = parser.parse_args(arguments)
+    try:
+        if command == "research":
+            from .literature_search import search_literature
+            result = search_literature(args.question, args.terms, args.limit)
+        else:
+            from .paper_text import read_paper
+            result = read_paper(args.pmcid, args.terms, args.limit)
+    except ValueError as exc:
+        print(f"{command}: {exc}", file=sys.stderr)
+        return 2
+    except OSError:
+        print(f"{command}: the literature provider could not be reached.", file=sys.stderr)
+        return 1
+    _write_line(json.dumps(result, ensure_ascii=False, allow_nan=False, indent=2))
+    return 1 if result["status"] == "unavailable" else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] in (["research"], ["read-paper"]):
+        return _literature(argv[0], argv[1:])
     if argv and argv[0] in ("keygen", "export", "verify"):
         return _handoff(argv[0], argv[1:])
     if argv[:1] == ["mcp"]:
@@ -106,10 +138,10 @@ def main(argv: list[str] | None = None) -> int:
     if explicit_build:
         argv = argv[1:]
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
-        "Commands: build, keygen, export, verify, mcp. Run a command with --help for its options."))
+        "Commands: research, read-paper, build, keygen, export, verify, mcp. Run a command with --help for its options."))
     parser.add_argument("example", type=Path, nargs="?" if explicit_build else None,
                         default=example_directory() if explicit_build else None,
-                        help="directory containing casebook.json and its sources (build defaults to the MX-1 example)")
+                        help="directory containing casebook.json and its sources (build defaults to the published CRP/SAA trial)")
     parser.add_argument("--without-passage", action="append", default=[], metavar="ID",
                         help="omit one passage from both questions; repeat to omit more")
     parser.add_argument("--review-store", type=Path, help="freeze this review and return its ID for exact later export")

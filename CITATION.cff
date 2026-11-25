@@ -4,11 +4,12 @@ type: software
 title: MedExtract Evidence Dossier
 authors:
   - name: MedExtract Evidence Dossier contributors
-version: 0.1.0rc1
-abstract: "An offline Python CLI and Model Context Protocol server for reviewing pre-annotated synthetic research evidence. Each decision records its source passages, and recipients can verify and replay a signed review bundle."
+version: 0.2.0a1
+abstract: "A Python CLI and Model Context Protocol server for researching biomarker questions across PubMed and Europe PMC, locating passages in openly licensed articles, and verifying signed reviews of annotated evidence."
 keywords:
-  - evidence review
+  - biomarker research
+  - literature search
+  - PubMed
+  - Europe PMC
   - evidence provenance
   - model context protocol
-  - reproducible research
-  - synthetic data

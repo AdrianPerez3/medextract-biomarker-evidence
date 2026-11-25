@@ -1,4 +1,4 @@
-"""Export one complete synthetic review as a signed, movable directory."""
+"""Export one complete review as a signed, movable directory."""
 
 import hashlib
 from html import escape
@@ -8,8 +8,8 @@ from tempfile import TemporaryDirectory
 
 from .bundle_format import BundleLimitError, ENVELOPE_NAME, check_member_path, json_bytes, validate_content
 from .comparison import make_comparison
-from .evidence import load_casebook_inputs
-from .presentation import REASON_TEXT, describe_estimate
+from .evidence import EXPORT_LICENSES, load_casebook_inputs
+from .presentation import describe_estimate, describe_reason, review_title
 from .signing import sign_manifest
 
 
@@ -19,16 +19,18 @@ def _scope(scope: dict) -> str:
     return "<details><summary>Scope</summary><dl>" + "".join(rows) + "</dl></details>"
 
 
-def _reason(code: str) -> str:
-    return f"{escape(REASON_TEXT[code])} <code>{escape(code)}</code>"
+def _reason(code: str, origin: str) -> str:
+    return f"{escape(describe_reason(code, origin))} <code>{escape(code)}</code>"
 
 
-def render_report(comparison: dict) -> bytes:
+def render_report(comparison: dict, *, sources: list[dict] | None = None) -> bytes:
     """Render every reviewed passage, including the evidence behind each exclusion."""
+    origin = comparison["evidence_origin"]
+    title = review_title(origin)
     parts = ['''<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Synthetic evidence review</title>
+<title>''' + title + '''</title>
 <style>
 body { max-width: 54rem; margin: 2rem auto; padding: 0 1.2rem; font: 1rem/1.5 system-ui, sans-serif; color: #182923; }
 h1,h2,h3,h4 { line-height: 1.25; }
@@ -39,7 +41,7 @@ a { color: #235b48; }
 code,dd,blockquote { overflow-wrap: anywhere; }
 dt { font-weight: 600; }
 dd { margin: 0 0 .4rem; }
-</style></head><body><main><h1>Synthetic evidence review</h1>
+</style></head><body><main><h1>''' + title + '''</h1>
 <nav aria-label="Bundle records"><a href="question.json">Questions</a> ·
 <a href="evidence.json">Annotated evidence</a> · <a href="decision.json">Decision records</a></nav>''']
     if comparison["omitted_passages"]:
@@ -48,7 +50,7 @@ dd { margin: 0 0 .4rem; }
 
     for decision in comparison["decisions"]:
         families = ", ".join(escape(item) for item in decision["eligible_families"]) or "none"
-        explanation = _reason(decision["reason"])
+        explanation = _reason(decision["reason"], origin)
         if decision["status"] == "effect_uncertain" and decision["reason"] == "interval_includes_null":
             explanation = ("The 95% interval includes both benefit and harm for the specified outcome. "
                            "<code>interval_includes_null</code>")
@@ -70,7 +72,7 @@ dd { margin: 0 0 .4rem; }
                 estimate = escape(describe_estimate(row["estimate"]))
             parts.extend([
                 f"<article><h4>{status} · {escape(row['passage_id'])}</h4>",
-                f"<p>{_reason(row['reason'])}</p>",
+                f"<p>{_reason(row['reason'], origin)}</p>",
                 f"<blockquote>{escape(row['quote'])}</blockquote>",
                 f"<p>{estimate}</p>",
                 f"<p>Source <code>{escape(row['source_id'])}</code> · "
@@ -82,6 +84,22 @@ dd { margin: 0 0 .4rem; }
                 "</article>",
             ])
         parts.append("</section>")
+    if origin == "published":
+        if sources is None:
+            records = {row["source_id"]: row for decision in comparison["decisions"] for row in decision["ledger"]}
+        else:
+            records = {source["id"]: source for source in sources}
+        parts.append("<section><h2>Publication sources and rights</h2><dl>")
+        for identifier, source in records.items():
+            url = escape(source["url"])
+            license_text = escape(source["license"])
+            if source["license"] in EXPORT_LICENSES:
+                license_text = f'<a href="{EXPORT_LICENSES[source["license"]]}">{license_text}</a>'
+            parts.extend([
+                f"<dt>{escape(identifier)}</dt><dd><cite>{escape(source['citation'])}</cite><br>",
+                f'<a href="{url}">{url}</a> · {license_text}</dd>',
+            ])
+        parts.append("</dl></section>")
     parts.append("</main></body></html>\n")
     return "\n".join(parts).encode("utf-8")
 
@@ -150,7 +168,7 @@ def export_review(book: dict, source_bytes: dict[str, bytes], destination: Path,
         "question.json": json_bytes({**header, "questions": book["questions"]}),
         "evidence.json": json_bytes({**header, **{k: book[k] for k in ("families", "sources", "passages")}}),
         "decision.json": json_bytes(comparison),
-        "report.html": render_report(comparison),
+        "report.html": render_report(comparison, sources=book["sources"]),
         **source_bytes,
     }
     validate_content(files)

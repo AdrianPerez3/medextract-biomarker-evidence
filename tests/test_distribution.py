@@ -71,7 +71,7 @@ def check_archives(source, artifacts, scratch):
     for name in approved:
         if name.startswith("medextract_dossier/"):
             expected[name] = name
-        elif name.startswith("examples/marker-mx1/"):
+        elif name.startswith(("examples/marker-mx1/", "examples/crp-saa-trial/")):
             expected["medextract_dossier/data/" + name.removeprefix("examples/")] = name
         elif name.startswith("schemas/"):
             expected["medextract_dossier/" + name] = name

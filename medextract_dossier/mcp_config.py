@@ -11,10 +11,12 @@ from .evidence import example_directory
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="medextract-dossier mcp",
-                                     description="Run the offline evidence review MCP server over stdio.")
+                                     description="Run the evidence dossier MCP server over stdio.")
     examples = parser.add_mutually_exclusive_group()
-    examples.add_argument("--example", type=Path, default=example_directory(), help="input directory for the marker-mx1 demo ID")
+    examples.add_argument("--casebook", "--example", dest="example", type=Path, help="operator-selected annotated casebook directory")
     examples.add_argument("--no-example", action="store_true", help="start a recipient without a casebook")
+    parser.add_argument("--literature", action="store_true",
+                        help="enable online searches of public literature and openly licensed paper text")
     parser.add_argument("--output-dir", type=Path, help="parent for signed exports")
     parser.add_argument("--private-key", type=Path, help="existing producer signing key")
     parser.add_argument("--public-key", type=Path, help="independently obtained public verification key")
@@ -40,10 +42,13 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
     try:
-        service = DossierService(example=None if args.no_example else args.example,
+        casebook = args.example
+        if casebook is None and not args.no_example and not args.literature:
+            casebook = example_directory()
+        service = DossierService(example=casebook,
                                  output_dir=args.output_dir, private_key=args.private_key,
                                  public_key=args.public_key, bundles=bundles)
-        run_server(service)
+        run_server(service, literature=args.literature)
     except (OSError, ValueError) as exc:
         print(f"Cannot start MCP server: {exc}", file=sys.stderr)
         return 2

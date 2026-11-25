@@ -20,7 +20,7 @@ def test_cli_build_can_write_to_a_text_only_stream():
     output = StringIO()
     with redirect_stdout(output):
         assert main(["build", "--json"]) == 0
-    assert json.loads(output.getvalue())["evidence_origin"] == "synthetic"
+    assert json.loads(output.getvalue())["evidence_origin"] == "published"
 
 
 def test_explicit_build_is_identical_to_legacy_review_and_needs_no_optional_deps():

@@ -1,4 +1,4 @@
-"""Human-readable descriptions of synthetic review decisions."""
+"""Human-readable descriptions of passage-level review decisions."""
 
 REASON_TEXT = {
     "direct": "Direct evidence for this question.",
@@ -21,6 +21,21 @@ REASON_TEXT = {
     "conflicting_family_estimates": "Reports from the same study family disagree.",
 }
 
+_PUBLISHED_REASONS = {
+    "single_family_association": "One study family reports an association for the specified comparison.",
+    "single_family_intervention_result": "One study family reports an effect estimate for the specified intervention.",
+}
+
+
+def review_title(origin: str) -> str:
+    return "Published evidence review" if origin == "published" else "Synthetic evidence review"
+
+
+def describe_reason(code: str, origin: str) -> str:
+    if origin == "published" and code in _PUBLISHED_REASONS:
+        return _PUBLISHED_REASONS[code]
+    return REASON_TEXT.get(code, code.replace("_", " "))
+
 
 def describe_estimate(estimate: dict) -> str:
     measure = estimate["measure"].replace("_", " ")
@@ -30,7 +45,8 @@ def describe_estimate(estimate: dict) -> str:
 
 
 def render_text(comparison: dict) -> str:
-    lines = ["Synthetic evidence review"]
+    origin = comparison["evidence_origin"]
+    lines = [review_title(origin)]
     if comparison["omitted_passages"]:
         lines.append("Omitted for this comparison: " + ", ".join(comparison["omitted_passages"]))
     for result in comparison["decisions"]:
@@ -39,13 +55,15 @@ def render_text(comparison: dict) -> str:
         if result["status"] == "effect_uncertain" and reason == "interval_includes_null":
             lines.append("The 95% interval includes both benefit and harm for the specified outcome.")
         else:
-            lines.append(REASON_TEXT.get(reason, reason.replace("_", " ")))
+            lines.append(describe_reason(reason, origin))
         lines.append("Eligible study families: " + (", ".join(result["eligible_families"]) or "none"))
         for row in result["ledger"]:
-            why = REASON_TEXT[row["reason"]]
+            why = describe_reason(row["reason"], origin)
             lines.append(f"  {row['passage_id']} [{row['family_id']}] — {why}")
             if row["reason"] == "direct" and row["estimate"] is not None:
                 lines.append("    " + describe_estimate(row["estimate"]))
             lines.append(f"    {row['source_file']} · bytes [{row['start']}, {row['end']})")
+            if origin == "published":
+                lines.append(f"    {row['citation']} · {row['url']} · {row['license']}")
             lines.append("    “" + row["quote"] + "”")
     return "\n".join(lines)

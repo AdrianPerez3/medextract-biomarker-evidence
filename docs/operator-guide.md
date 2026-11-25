@@ -1,16 +1,22 @@
 # Operating MedExtract Evidence Dossier
 
-Use the CLI for a review you want to keep across sessions. An MCP client can review the example interactively and hand the same review to a recipient. Both work locally after installation. [MX-1 quick start](../README.md#quick-start-for-offline-evidence-review)
+Use the literature tools for discovery and passage retrieval. Use the offline review tools for a casebook whose sources and annotations a reviewer has checked. The two operations are distinct: rerunning a live query can retrieve different publications; replaying a signed review checks the frozen source bytes. [Biomarker research quick start](../README.md#ask-a-biomarker-question-from-an-mcp-client)
+
+## From published paper to reviewed casebook
+
+1. Save the intended question, search expression and provider results from `research`. Check truncation, missing providers, study design and publication notices. One study may have more than one DOI or report.
+2. Use `read-paper` to inspect supported openly licensed text, or review a local UTF-8 text source that you have permission to use. The paper reader's locations are character offsets in a whitespace-normalized JATS paragraph. The casebook's locations are byte offsets into the exact local source text. Compute the byte range from the saved local bytes.
+3. Declare `evidence_origin: published`. Give each source its bibliographic `citation`, absolute HTTPS `url`, declared `license`, relative text file, SHA-256 and study-family ID. In the passage annotation, encode the population, comparison, follow-up, outcome and reported estimate. Mark it reviewed only after checking these against the publication. The rules currently interpret eligible risk ratios with intervals. Hazard ratios and odds ratios must retain their meaning; they cannot be entered as risk ratios.
+4. Build with the explicit casebook path. The source metadata then appears in the passage ledger and signed handoff. Reading a local casebook accepts declared source terms. Signed export currently supports `CC0-1.0`, `CC-BY-3.0` and `CC-BY-4.0`; retain the attribution and verify the terms cover each included passage. [Worked published casebook](../examples/crp-saa-trial/casebook.json) · [Input schema](../schemas/v1/casebook.schema.json)
 
 ## Sign and verify a review
 
 From a checkout with the virtual environment active, install `python -m pip install '.[handoff]'`. The following example uses the packaged casebook. After installation you can run these commands in a separate working directory.
 
-**1. Review and freeze the source bytes.** This example omits the cohort result. Leave out `--without-passage cohort-result` to freeze the baseline instead.
+**1. Review and freeze the source bytes.** This uses the included published trial. To freeze your own annotated study, add its casebook directory after `build`.
 
 ```sh
-medextract-dossier build --without-passage cohort-result \
-  --review-store work/reviews --json > work-reviewed.json
+medextract-dossier build --review-store work/reviews --json > work-reviewed.json
 review_id=$(python -c "import json; print(json.load(open('work-reviewed.json'))['review_id'])")
 ```
 
@@ -27,7 +33,7 @@ medextract-dossier export --review-store work/reviews --review-id "$review_id" \
 
 Keep the private key outside the inputs and exports. Repeating the same export to the same destination succeeds. Select a fresh destination for different content. For an immediate export of the current files, supply the example directory explicitly, e.g. `medextract-dossier export examples/marker-mx1 --out handoff/baseline --private-key "$key_dir/producer.pem"` from the repository root.
 
-**3. Verify as the recipient.** Transfer the complete signed directory, preserving file bytes. Supply the public key separately or verify its fingerprint over a trusted channel. Place the MX-1 attribution alongside the directory when redistributing the example. [Example credit](../examples/marker-mx1/PROVENANCE.md)
+**3. Verify as the recipient.** Transfer the complete signed directory, preserving file bytes. Supply the public key separately or verify its fingerprint over a trusted channel. Include the required source attribution. [Published trial credit](../examples/crp-saa-trial/PROVENANCE.md) · [MX-1 fixture credit](../examples/marker-mx1/PROVENANCE.md)
 
 ```sh
 medextract-dossier verify received/reviewed --public-key trusted/producer.pub.pem --json
@@ -72,7 +78,7 @@ From the repository directory with the virtual environment active, install `pyth
 
 | Tool | Example arguments | Response |
 | --- | --- | --- |
-| `evidence_dossier` | `{}` for baseline or `{"without_passages":["cohort-result"]}` | A decision, reason and eligible study-family count per question, with a shared `review_id` and `review_uri`. |
+| `evidence_dossier` | `{}` for baseline or `{"without_passages":["index-antibiotic-prescribing"]}` for the published example | A decision, reason and eligible study-family count per question, with a shared `review_id` and `review_uri`. |
 | `export_dossier` | `{"review_id":"<returned review_id>"}` | A signed directory under the configured output directory and its `bundle_id`. Export uses the bytes captured during review. |
 | `verify_dossier` | `{"bundle_id":"received"}` for the recipient below, or use a returned export ID | Signature, integrity and replay results, plus a `receipt_uri` for file checks and signer fingerprints. |
 

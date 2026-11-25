@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "evidence_origin": "published",
+  "questions": [
+    {
+      "id": "intervention",
+      "text": "At village clinics in Xiantao, China, how did assignment to a prescribing package using both C-reactive protein and serum amyloid A, compared with usual care, affect antibiotic prescribing at the initial consultation for acute respiratory infection?",
+      "scope": {
+        "intent": "intervention",
+        "population": "Initial acute respiratory infection consultations in patients of all ages at 40 village clinics in Xiantao, Hubei, China",
+        "factor": "Clinic assignment to combined C-reactive protein and serum amyloid A point-of-care testing with a prescribing algorithm, clinician training, desk reminders, monthly prescribing feedback, patient education and a test copayment paid to the clinician",
+        "comparator": "Clinic assignment to usual care without the combined test, additional clinician training or patient education materials",
+        "outcome": "Any antibiotic prescription from the village clinician at the index consultation",
+        "event_coding": "adverse",
+        "direction": "assigned_vs_control",
+        "months": 0
+      }
+    }
+  ],
+  "families": [
+    {
+      "id": "nct06568432",
+      "label": "Xiantao village-clinic cluster-randomised trial (NCT06568432)"
+    }
+  ],
+  "sources": [
+    {
+      "id": "xu-2026-results",
+      "family_id": "nct06568432",
+      "file": "sources/result.txt",
+      "sha256": "5e0639e0c4ad0b7dccda1c033411093abb1919802788d2820fc1f63cc6296ee3",
+      "citation": "Xu M, Wang J, Zhang Z, Ge E, Zhu Y, Li J, Gong Y, Lu Z, Wei X, Yin X. Lancet Reg Health West Pac. 2026, volume 71, article 101888. DOI 10.1016/j.lanwpc.2026.101888.",
+      "url": "https://doi.org/10.1016/j.lanwpc.2026.101888",
+      "license": "CC-BY-4.0"
+    }
+  ],
+  "passages": [
+    {
+      "id": "index-antibiotic-prescribing",
+      "source_id": "xu-2026-results",
+      "start": 915,
+      "end": 952,
+      "quote": "adjusted RR 0.80 [95% CI 0.78–0.82]",
+      "kind": "result",
+      "review": "reviewed",
+      "scope": {
+        "intent": "intervention",
+        "population": "Initial acute respiratory infection consultations in patients of all ages at 40 village clinics in Xiantao, Hubei, China",
+        "factor": "Clinic assignment to combined C-reactive protein and serum amyloid A point-of-care testing with a prescribing algorithm, clinician training, desk reminders, monthly prescribing feedback, patient education and a test copayment paid to the clinician",
+        "comparator": "Clinic assignment to usual care without the combined test, additional clinician training or patient education materials",
+        "outcome": "Any antibiotic prescription from the village clinician at the index consultation",
+        "event_coding": "adverse",
+        "direction": "assigned_vs_control",
+        "months": 0
+      },
+      "estimate": {
+        "measure": "risk_ratio",
+        "point": 0.8,
+        "low": 0.78,
+        "high": 0.82,
+        "unit": "ratio"
+      }
+    }
+  ]
+}

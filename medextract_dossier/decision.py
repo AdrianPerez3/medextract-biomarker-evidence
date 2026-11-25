@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 
+from .evidence import BIBLIOGRAPHIC_FIELDS
 from .questions import applicability
 
 
@@ -37,6 +38,8 @@ def decide(question: dict, passages: list[dict], sources: list[dict]) -> dict:
             "scope": deepcopy(passage["scope"]),
             "estimate": deepcopy(passage["estimate"]),
         }
+        if "citation" in source:
+            row.update({field: source[field] for field in BIBLIOGRAPHIC_FIELDS})
         ledger.append(row)
         if reason == "direct":
             direct.append(row)

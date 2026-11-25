@@ -1,4 +1,4 @@
-"""A process-local handle to synthetic reviews and operator-selected signed bundles."""
+"""A process-local handle to reviewed casebooks and operator-selected signed bundles."""
 
 from __future__ import annotations
 
@@ -128,17 +128,19 @@ class DossierService:
         self._reviews: _Cache[_Review] = _Cache()
         self._receipts: _Cache[bytes] = _Cache()
 
-    def build(self, example_id: str = "marker-mx1", without_passages: list[str] | None = None) -> dict:
-        if example_id != "marker-mx1" or self._example is None:
-            raise ServiceError("The requested synthetic example is unavailable.")
+    def build(self, example_id: str = "configured", without_passages: list[str] | None = None) -> dict:
+        if example_id not in ("configured", "marker-mx1") or self._example is None:
+            raise ServiceError("The requested casebook is unavailable.")
         omitted = [] if without_passages is None else without_passages
         with _operation("Omissions must contain valid UTF-8 passage IDs."):
             _check_omissions(omitted)
-        with _operation("Cannot read the configured synthetic example. Check its casebook, source files and size limit."):
+        with _operation("Cannot read the configured casebook. Check its source files and size limit."):
             example_directory = self._example.resolve()
             if self._private_key is not None:
                 _check_key_path(self._private_key, example_directory)
             book, sources = load_casebook_inputs(example_directory, max_bytes=_REVIEW_INPUT_BYTES)
+            if example_id == "marker-mx1" and book["evidence_origin"] != "synthetic":
+                raise ServiceError("The requested synthetic example is unavailable.")
             if self._private_key is not None and self._private_key.exists():
                 from .bundle_export import check_signing_source
 
@@ -146,7 +148,7 @@ class DossierService:
 
         with _operation("Unknown passage ID in the requested omissions."):
             comparison = make_comparison(book, omitted)
-        with _operation("Cannot encode the configured synthetic review."):
+        with _operation("Cannot encode the configured review."):
             casebook = json_bytes(book)
             record = json_bytes(comparison)
             if len(record) > _REVIEW_RECORD_BYTES:

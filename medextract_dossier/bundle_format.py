@@ -1,10 +1,10 @@
-"""Versioned member names and offline replay rules for a synthetic review bundle."""
+"""Versioned member names and offline replay rules for a signed review bundle."""
 from __future__ import annotations
 
 import re
 
 from .comparison import make_comparison, review_identifier
-from .evidence import json_bytes, parse_json, validate_casebook
+from .evidence import EVIDENCE_ORIGINS, EXPORT_LICENSES, json_bytes, parse_json, validate_casebook
 
 ENVELOPE_NAME = "manifest.dsse.json"
 PAYLOAD_TYPE = "application/vnd.medextract.evidence-dossier.manifest.v1+json"
@@ -39,8 +39,8 @@ def _section(members: dict[str, bytes], name: str, fields: set[str]) -> dict:
             raise ValueError("unexpected or missing fields")
         if type(section["schema_version"]) is not int or section["schema_version"] != 1:
             raise ValueError("unsupported schema version")
-        if section["evidence_origin"] != "synthetic":
-            raise ValueError("expected synthetic evidence")
+        if section["evidence_origin"] not in EVIDENCE_ORIGINS:
+            raise ValueError("unsupported evidence_origin")
     except (KeyError, ValueError) as exc:
         raise ValueError(f"{name}: {exc}") from exc
     return section
@@ -55,6 +55,9 @@ def validate_content(members: dict[str, bytes]) -> str:
     question = _section(members, "question.json", {"questions"})
     evidence = _section(members, "evidence.json", {"sources", "families", "passages"})
     comparison = _section(members, "decision.json", {"omitted_passages", "decisions"})
+    origin = evidence["evidence_origin"]
+    if question["evidence_origin"] != origin or comparison["evidence_origin"] != origin:
+        raise ValueError("evidence_origin must agree across question.json, evidence.json and decision.json")
     omitted = comparison["omitted_passages"]
     if not isinstance(omitted, list) or not all(isinstance(item, str) for item in omitted):
         raise ValueError("decision.json: omitted_passages must be a list of passage IDs")
@@ -62,6 +65,10 @@ def validate_content(members: dict[str, bytes]) -> str:
         book = validate_casebook({**question, **evidence}, members.__getitem__)
     except (ValueError, KeyError) as exc:
         raise ValueError(f"Invalid question or evidence: {exc}") from exc
+    if origin == "published":
+        for source in book["sources"]:
+            if source["license"] not in EXPORT_LICENSES:
+                raise ValueError(f"Source {source['id']!r} has no supported redistribution license for signed export")
     expected = REQUIRED_MEMBERS | {s["file"] for s in book["sources"]}
     if members.keys() != expected:
         raise ValueError("Declared source files differ from bundle members")
@@ -74,10 +81,12 @@ def validate_content(members: dict[str, bytes]) -> str:
     if json_bytes(replay) != recorded:
         # Early v1 handoffs used no_result for both an objective and an absent
         # extracted estimate. Reproduce that exact older ledger when requested.
-        for decision in replay["decisions"]:
-            for row in decision["ledger"]:
-                if row["reason"] == "estimate_missing":
-                    row["reason"] = "no_result"
-        if json_bytes(replay) != recorded:
-            raise ValueError("decision.json differs from the comparison reproduced from the bundled evidence")
+        if origin == "synthetic":
+            for decision in replay["decisions"]:
+                for row in decision["ledger"]:
+                    if row["reason"] == "estimate_missing":
+                        row["reason"] = "no_result"
+            if json_bytes(replay) == recorded:
+                return review_identifier(book, replay)
+        raise ValueError("decision.json differs from the comparison reproduced from the bundled evidence")
     return review_identifier(book, replay)

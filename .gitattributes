@@ -1,4 +1,5 @@
 # Passage offsets and SHA-256 digests refer to these exact LF-terminated bytes.
 examples/marker-mx1/sources/*.txt text eol=lf
+examples/crp-saa-trial/sources/*.txt text eol=lf
 # Preserve the final blank line in the upstream Creative Commons legal text.
 LICENSES/CC-BY-4.0.txt text eol=lf whitespace=-blank-at-eof

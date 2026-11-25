@@ -1,68 +1,87 @@
-# MedExtract Evidence Dossier — offline evidence review for Python and MCP
+# MedExtract Evidence Dossier — biomarker literature research for MCP and Python
 
-Trace a research conclusion to the exact passage that supports it. MedExtract Evidence Dossier is an offline **Python CLI and Model Context Protocol (MCP) server** for reviewing pre-annotated synthetic research evidence. It records why each passage was included or excluded. A recipient can verify a signed review and reproduce its decisions from the same source bytes.
+Ask a population-level question about a biomarker and trace the evidence back to published papers. MedExtract Evidence Dossier lets a Model Context Protocol (MCP) client search **PubMed and Europe PMC**, inspect the citations returned by each, and locate passages in openly licensed full text. A reviewer can also freeze an annotated casebook, sign it and let a recipient independently replay its decisions offline.
 
-The included **MX-1 casebook** demonstrates a common evidence-review problem. A cohort found that people with a higher baseline marker had more task failures. A separate trial found that a program lowered the marker, but its effect on task failures remained uncertain. The tool shows which study answers each question. [Read the cohort](examples/marker-mx1/sources/cohort.txt) · [Read the trial](examples/marker-mx1/sources/trial.txt)
+This is a research preview. The live tools retrieve records and passages. A researcher or the calling AI client must assess whether the study design, population and outcome answer the question. Scientific accuracy on a held-out literature set and clinical use have not been validated.
 
-## Quick start for offline evidence review
+## Ask a biomarker question from an MCP client
 
-From the repository directory on macOS or Linux, run the example with Python 3.11 or later. This command reads the bundled files and prints the review. It needs no package installation, API key, model download or network connection.
-
-```sh
-python3 -m medextract_dossier build
-```
-
-| Question about the fictional studies | Result reported in the source | CLI decision |
-| --- | --- | --- |
-| Was higher baseline MX-1 associated with a first task failure within 12 months? | 48 of 200 versus 24 of 200 participants. Risk ratio **2.00**, 95% CI **1.28–3.13**. | `association_observed` |
-| Did assignment to program K change the risk of the same outcome? | 18 of 150 versus 20 of 150 participants. Risk ratio **0.90**, 95% CI **0.50–1.63**. The interval includes both lower and higher risk. | `effect_uncertain` |
-
-To see which answer depends on the cohort, omit its decisive passage and request JSON.
-
-```sh
-python3 -m medextract_dossier build --without-passage cohort-result --json
-```
-
-Prognosis changes to `insufficient` with reason `no_direct_result`. The intervention decision stays `effect_uncertain`. To inspect a citation yourself, find `cohort-result` in the **baseline** output. Its quote occupies UTF-8 bytes 385 through 705 of `sources/cohort.txt`; the recorded end offset is 706. [Expected decisions](examples/marker-mx1/expected.json) · [Annotated casebook](examples/marker-mx1/casebook.json)
-
-## Inputs, outputs and evidence provenance
-
-| For this task | Use this file or interface |
-| --- | --- |
-| Prepare an input | A synthetic `casebook.json` and UTF-8 source files. The casebook supplies the questions, study families, passage annotations, estimates and source digests. [Casebook JSON Schema](schemas/v1/casebook.schema.json) |
-| Parse a review | `build --json` returns decisions, reasons, eligible study families, and a ledger of quoted passages with source paths, byte offsets and SHA-256 digests. [Comparison JSON Schema](schemas/v1/comparison.schema.json) · [Decision JSON Schema](schemas/v1/decision.schema.json) |
-| Deliver a reproducible review | Freeze the review, export an Ed25519-signed bundle, then verify its signature, file integrity and decision replay using an independently obtained public key. [Signed review walkthrough](docs/operator-guide.md#sign-and-verify-a-review) |
-| Audit the example | Three fictional study texts, including a protocol with no observed result, plus the casebook, expected answers and provenance note. The note documents how the numerical examples were constructed. [Example provenance and license](examples/marker-mx1/PROVENANCE.md) |
-
-Version 1 supports prognosis and intervention questions. It checks reviewer-supplied annotations against the question and verifies the quoted source bytes. Reports from a single study family count once. When more than one family supplies direct evidence, the rules return `insufficient` with reason `multiple_families_require_review` and leave synthesis to a reviewer. The example contains no patient records. Accuracy on published studies and suitability for clinical decisions have not been evaluated.
-
-## Install the CLI or connect an MCP client
-
-To use the commands outside the checkout, create a virtual environment in the repository directory and install the features you need.
+From a copy of the repository on macOS or Linux, install the server with Python 3.11 or later.
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install .
-medextract-dossier build --json
+python -m pip install '.[mcp]'
 ```
 
-For signing and verification, install `python -m pip install '.[handoff]'` in that environment. For an AI client, install `python -m pip install '.[mcp]'`, then configure the client to launch the absolute path to `.venv/bin/medextract-dossier-mcp` over standard input and output. The MCP extra includes signing and verification. [Client configuration, tool arguments and operator limits](docs/operator-guide.md#connect-an-mcp-client)
+Configure the client to start the installed executable over standard input and output. Replace the example path with the absolute path to your environment. The `--literature` option enables the two online tools; it starts without a demonstration casebook.
 
-| MCP tool | What the client can do |
+```json
+{
+  "mcpServers": {
+    "medextract-dossier": {
+      "command": "/absolute/path/to/.venv/bin/medextract-dossier-mcp",
+      "args": ["--literature"]
+    }
+  }
+}
+```
+
+Try this in the client.
+
+> What published studies compared cystatin C and creatinine for estimating kidney function? Search both indexes, identify overlapping citations, and read the methods and results of relevant papers you can access. Give the paper and section for each finding. Tell me which papers you could only identify by citation.
+
+| Tool | What happens |
 | --- | --- |
-| `evidence_dossier` | Review the configured synthetic example. Read the returned `review_uri` for the full passage ledger. |
-| `export_dossier` | Sign the review named by `review_id` when the operator has configured signing. |
-| `verify_dossier` | Verify a configured or exported bundle with the trusted public key. Read `receipt_uri` for the per-file results. |
+| `research_biomarker` | The server sends the supplied search terms to PubMed and Europe PMC. If terms are omitted, it sends the question. The response includes citations, available identifiers, the search date, query and provider outcomes. The two indexes can describe the same paper. |
+| `read_paper` | Given a PubMed Central ID and terms, the server requests article XML from Europe PMC, with NCBI PubMed Central as a fallback for missing text or temporary outages. It searches the text locally, reports which provider supplied it, and returns each match with a source locator. The reader currently accepts explicit CC BY 4.0 or CC0 1.0 article licenses. |
 
-Try this request in your MCP client.
+Only send public research terms and paper identifiers. Article text is external content; use it as quoted evidence. The search tools do not need an API key. [PubMed E-utilities](https://www.ncbi.nlm.nih.gov/books/NBK25499/) · [Europe PMC API](https://europepmc.org/RestfulWebService)
 
-> Run the MX-1 review. Which passage supports the prognosis result? Give its filename and byte range. Omit that passage and show me which decision changes.
+## Run the same search from the CLI
+
+The literature commands use Python's standard library. Run this search from the checkout.
+
+```sh
+python3 -m medextract_dossier research \
+  "Which studies compared cystatin C and creatinine for estimating kidney function?" \
+  --terms '"cystatin C" AND creatinine AND "kidney function"' --limit 5
+```
+
+To read a specific paper, use the returned PMCID. For example, `PMC5634538` is a published primary-care cohort study on cystatin C measurement. This command searches its text for a passage about **reclassification**. Answers about diagnostic classification need different evidence from answers about whether a treatment improves outcomes. [Original paper](https://doi.org/10.1371/journal.pmed.1002400)
+
+```sh
+python3 -m medextract_dossier read-paper PMC5634538 --terms "reclassification" --limit 2
+```
+
+Both commands emit JSON. Save it by redirecting output to a file. Record which search terms you used. Check the provider statuses before interpreting an empty result, and inspect the paper before citing a claim. Repeating a live search later can return different records.
+
+## Review a published document and sign the result
+
+For a formal review, prepare a local casebook with `evidence_origin` set to `published`. Include the actual source text that you are entitled to use, a bibliographic citation, source URL, reuse terms, and the corresponding annotated passages. The validator checks the source SHA-256 and each quotation's UTF-8 byte range. Eligible estimates must match the reviewed question's population, comparison, outcome and follow-up. Retrieved citations and lexical matches enter this workflow only after someone has assessed them.
+
+```sh
+medextract-dossier build /path/to/casebook --json
+medextract-dossier build /path/to/casebook --review-store work/reviews --json
+```
+
+Use `--casebook /path/to/casebook` in the MCP startup arguments to expose the same review to the client. The three offline tools are `evidence_dossier` (review), `export_dossier` (sign), and `verify_dossier` (check signature, contents and decision replay). The signer must have permission to redistribute each included source. A trusted key authenticates the review bytes; the scientific assessment remains the reviewer's responsibility. [Casebook JSON Schema](schemas/v1/casebook.schema.json) · [Comparison JSON Schema](schemas/v1/comparison.schema.json) · [Signed review walkthrough](docs/operator-guide.md#sign-and-verify-a-review)
+
+## Reproduce a published trial result offline
+
+The default `build` uses an excerpt from a published cluster-randomized trial in Chinese village clinics. The study compared a package that included C-reactive protein (CRP) and serum amyloid A (SAA) testing with usual care. The reviewed outcome is antibiotic prescribing at the index consultation. The authors reported an adjusted relative risk of **0.80** (95% CI **0.78–0.82**). This estimate applies to the intervention package studied; the trial does not isolate the contribution of either biomarker. [Primary publication](https://pmc.ncbi.nlm.nih.gov/articles/PMC13227237/) · [Source attribution and review scope](examples/crp-saa-trial/PROVENANCE.md)
+
+```sh
+python3 -m medextract_dossier build
+python3 -m medextract_dossier build --without-passage index-antibiotic-prescribing --json
+```
+
+The first command reports `effect_estimate_reported`. Omitting the decisive passage leaves `insufficient` direct evidence in this casebook. This reproduces a single published comparison, not a meta-analysis. The older fictional MX-1 casebook is available explicitly as `python3 -m medextract_dossier build examples/marker-mx1` for regression tests. [Published casebook](examples/crp-saa-trial/casebook.json) · [MX-1 test expectations](examples/marker-mx1/expected.json)
 
 ## Testing and citation
 
-The test suite covers the decision rules, quote locations, signed bundles, package contents and a client connected to the MCP server. To run it in the active environment, follow the contribution guide. Use the citation file to credit the version you used. [Run the tests](CONTRIBUTING.md) · [Cite the software](CITATION.cff) · [Report a security issue](SECURITY.md)
+Run the offline tests, including deterministic provider fixtures, following the contribution guide. Live indexes, article access and network availability can change independently of a software release. [Contribution guide](CONTRIBUTING.md) · [Cite the software](CITATION.cff) · [Security policy](SECURITY.md)
 
 ## License and attribution
 
-The software, schemas, tests and project documentation use the **MIT License**. The six files under `examples/marker-mx1/` use **CC BY 4.0**, including the copy bundled with the Python package. Both credit **MedExtract Evidence Dossier contributors**. When redistributing the example, include the attribution, link the license and indicate any changes. [MIT License](LICENSE) · [CC BY 4.0 license](LICENSES/CC-BY-4.0.txt) · [Example credit](examples/marker-mx1/PROVENANCE.md)
+The software, project annotations, schemas, tests and project documentation use the **MIT License**. The six original MX-1 fixture files use **CC BY 4.0**. Both credit **MedExtract Evidence Dossier contributors**. The published trial excerpt, including the quotation in its casebook, retains the article authors' own **CC BY 4.0** attribution. Other retrieved papers retain their respective terms. [MIT License](LICENSE) · [Published trial credit](examples/crp-saa-trial/PROVENANCE.md) · [MX-1 credit](examples/marker-mx1/PROVENANCE.md) · [CC BY 4.0](LICENSES/CC-BY-4.0.txt)

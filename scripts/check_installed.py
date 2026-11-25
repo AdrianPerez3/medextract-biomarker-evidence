@@ -39,17 +39,25 @@ async def check_recipient(work, public_key, record):
             assert not result.isError and result.structuredContent["verified"] is True
             receipt = await session.read_resource(result.structuredContent["receipt_uri"])
             assert json.loads(receipt.contents[0].text) == record
+    # Enabling online tools must not contact either provider during startup or discovery.
+    params = StdioServerParameters(command=str(SCRIPTS / "medextract-dossier-mcp"), cwd=str(work),
+                                   args=["--literature"])
+    async with stdio_client(params) as (reader, writer):
+        async with ClientSession(reader, writer, read_timeout_seconds=timedelta(seconds=20)) as session:
+            await session.initialize()
+            tools = {tool.name: tool for tool in (await session.list_tools()).tools}
+            for name in ("research_biomarker", "read_paper"):
+                assert tools[name].annotations.openWorldHint and tools[name].annotations.readOnlyHint
 
 
 def check(work, core_only):
     def decisions(*args):
         report = json.loads(cli(work, "build", *args, "--json").stdout)
-        assert report["evidence_origin"] == "synthetic"
+        assert report["evidence_origin"] == "published"
         return {entry["question_id"]: entry["status"] for entry in report["decisions"]}
 
-    assert decisions() == {"prognosis": "association_observed", "intervention": "effect_uncertain"}
-    assert decisions("--without-passage", "cohort-result") == {
-        "prognosis": "insufficient", "intervention": "effect_uncertain"}
+    assert decisions() == {"intervention": "effect_estimate_reported"}
+    assert decisions("--without-passage", "index-antibiotic-prescribing") == {"intervention": "insufficient"}
     private, public = work / "keys" / "producer.pem", work / "keys" / "producer.pub.pem"
     keygen = ["keygen", "--private-key", private, "--public-key", public]
     if core_only:

@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "medextract-evidence-dossier"
-version = "0.1.0rc1"
-description = "Offline Python CLI and MCP server for reviewing pre-annotated synthetic research evidence, tracing source passages and verifying signed review bundles."
+version = "0.2.0a1"
+description = "Research biomarker questions with PubMed and Europe PMC, read published evidence passages and replay signed reviews using a Python CLI or MCP server."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{name = "MedExtract Evidence Dossier contributors"}]
-keywords = ["evidence review", "evidence provenance", "model context protocol", "reproducible research", "synthetic data"]
+keywords = ["biomarker research", "literature search", "PubMed", "Europe PMC", "evidence provenance", "model context protocol"]
 classifiers = [
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
@@ -39,6 +39,9 @@ include = [
     "/README.md",
     "/SECURITY.md",
     "/docs/operator-guide.md",
+    "/examples/crp-saa-trial/PROVENANCE.md",
+    "/examples/crp-saa-trial/casebook.json",
+    "/examples/crp-saa-trial/sources/result.txt",
     "/examples/marker-mx1/PROVENANCE.md",
     "/examples/marker-mx1/casebook.json",
     "/examples/marker-mx1/expected.json",
@@ -53,8 +56,11 @@ include = [
     "/medextract_dossier/comparison.py",
     "/medextract_dossier/decision.py",
     "/medextract_dossier/evidence.py",
+    "/medextract_dossier/literature_http.py",
+    "/medextract_dossier/literature_search.py",
     "/medextract_dossier/mcp_config.py",
     "/medextract_dossier/mcp_server.py",
+    "/medextract_dossier/paper_text.py",
     "/medextract_dossier/presentation.py",
     "/medextract_dossier/questions.py",
     "/medextract_dossier/review_store.py",
@@ -77,8 +83,12 @@ include = [
     "/tests/test_distribution.py",
     "/tests/test_example_contract.py",
     "/tests/test_example_workflow.py",
+    "/tests/test_literature_interface.py",
+    "/tests/test_literature_search.py",
     "/tests/test_mcp_transport.py",
     "/tests/test_mcp_workflow.py",
+    "/tests/test_paper_text.py",
+    "/tests/test_published_casebook.py",
     "/tests/test_questions.py",
     "/tests/test_schemas.py",
     "/tests/test_service.py",
@@ -89,5 +99,6 @@ include = [
 exclude = ["/tests", "/scripts", "/docs", "/.gitattributes", "/.gitignore", "/CITATION.cff", "/CONTRIBUTING.md", "/LICENSE", "/LICENSES", "/README.md", "/SECURITY.md", "/pyproject.toml", "/requirements-*.txt"]
 
 [tool.hatch.build.targets.wheel.sources]
+"examples/crp-saa-trial" = "medextract_dossier/data/crp-saa-trial"
 "examples/marker-mx1" = "medextract_dossier/data/marker-mx1"
 "schemas/v1" = "medextract_dossier/schemas/v1"

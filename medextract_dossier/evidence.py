@@ -7,11 +7,20 @@ import os
 import stat
 from pathlib import Path
 import re
+from urllib.parse import urlsplit
 
 from .questions import EXPECTED_DIRECTION
 
 _SOURCE_PATH = re.compile(r"sources/[^/\\\x00]+\.txt")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+EVIDENCE_ORIGINS = ("synthetic", "published")
+BIBLIOGRAPHIC_FIELDS = ("citation", "url", "license")
+EXPORT_LICENSES = {
+    "CC0-1.0": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "CC-BY-3.0": "https://creativecommons.org/licenses/by/3.0/",
+    "CC-BY-4.0": "https://creativecommons.org/licenses/by/4.0/",
+}
+_HOST_LABEL = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")
 
 
 def _object(pairs):
@@ -132,9 +141,32 @@ def _read_local(directory, relative, max_bytes=None):
         raise ValueError(f"cannot read {relative!r}: {exc}") from exc
 
 
-def _source_bytes(source, families, read_source):
+def _publication_url(value, where):
+    _text(value, where)
+    try:
+        url = urlsplit(value)
+        host = (url.hostname or "").encode("idna").decode("ascii")
+        labels = host.rstrip(".").split(".")
+        valid = (url.scheme == "https" and url.username is None and url.password is None
+                 and len(labels) > 1 and all(_HOST_LABEL.fullmatch(label) for label in labels)
+                 and not url.netloc.endswith(":") and url.port != 0
+                 and not re.search(r"[\s\\\x00-\x1f\x7f]", value))
+    except (ValueError, UnicodeError):
+        valid = False
+    if not valid:
+        raise ValueError(f"{where} must be an absolute HTTPS publication URL")
+
+
+def _source_bytes(source, families, read_source, origin):
     where = f"source {source['id']!r}"
-    _fields(source, "id family_id file sha256", where)
+    fields = "id family_id file sha256"
+    if origin == "published":
+        _fields(source, fields + " " + " ".join(BIBLIOGRAPHIC_FIELDS), where)
+        _text(source["citation"], f"{where}.citation")
+        _publication_url(source["url"], f"{where}.url")
+        _text(source["license"], f"{where}.license")
+    else:
+        _fields(source, fields, where)
     _reference(source["family_id"], families, f"{where}.family_id")
     file = source["file"]
     if not isinstance(file, str) or not _SOURCE_PATH.fullmatch(file):
@@ -178,14 +210,14 @@ def _passage(passage, source_bytes):
 
 
 def example_directory() -> Path:
-    """Locate the synthetic example in a regular installation or a source checkout."""
+    """Locate the published trial casebook in an installation or a source checkout."""
     package = Path(__file__).resolve().parent
-    bundled = package / "data" / "marker-mx1"
-    return bundled if bundled.is_dir() else package.parent / "examples" / "marker-mx1"
+    bundled = package / "data" / "crp-saa-trial"
+    return bundled if bundled.is_dir() else package.parent / "examples" / "crp-saa-trial"
 
 
 def load_casebook(directory: Path) -> dict:
-    """Validate an example directory and return its casebook."""
+    """Validate a casebook directory and return its annotated records."""
     return load_casebook_inputs(directory)[0]
 
 
@@ -234,8 +266,7 @@ def validate_casebook(casebook: dict, read_source) -> dict:
     casebook["schema_version"] = _nonnegative_integer(casebook["schema_version"], "schema_version")
     if casebook["schema_version"] != 1:
         raise ValueError("casebook schema_version must be integer 1")
-    if casebook["evidence_origin"] != "synthetic":
-        raise ValueError("casebook evidence_origin must be 'synthetic'")
+    _choice(casebook["evidence_origin"], EVIDENCE_ORIGINS, "casebook evidence_origin")
 
     questions = _indexed(casebook, "questions")
     if not questions:
@@ -257,7 +288,7 @@ def validate_casebook(casebook: dict, read_source) -> dict:
     source_bytes = {}
     families_by_digest = {}
     for identifier, source in sources.items():
-        source_bytes[identifier] = _source_bytes(source, families, read_source)
+        source_bytes[identifier] = _source_bytes(source, families, read_source, casebook["evidence_origin"])
         family = families_by_digest.setdefault(source["sha256"], source["family_id"])
         if family != source["family_id"]:
             raise ValueError("Identical source bytes cannot describe different study families in v1")

@@ -1,0 +1,11 @@
+An excerpt from the Xu and colleagues cluster-randomised trial (NCT06568432).
+Xu M, Wang J, Zhang Z, Ge E, Zhu Y, Li J, Gong Y, Lu Z, Wei X, Yin X. Lancet Reg Health West Pac. 2026, volume 71, article 101888. DOI 10.1016/j.lanwpc.2026.101888.
+Original publication: https://doi.org/10.1016/j.lanwpc.2026.101888
+Article text: https://pmc.ncbi.nlm.nih.gov/articles/PMC13227237/#sec3
+© 2026 The Author(s). CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
+
+Project locator and extraction note (MIT)
+Results, second paragraph, first sentence. The authors report the primary intention-to-treat comparison of any antibiotic prescription at the initial acute respiratory infection consultation under the assigned clinic package versus usual care. The project checked the extraction against the published text. It has not undergone independent scientific adjudication.
+
+Verbatim fragment from the article (CC BY 4.0)
+adjusted RR 0.80 [95% CI 0.78–0.82]

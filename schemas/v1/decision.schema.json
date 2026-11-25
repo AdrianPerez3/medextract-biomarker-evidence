@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "MX-1 evidence decision, version 1",
+  "title": "Evidence decision, version 1",
   "description": "One decision for one question. Each input passage occurs once in ledger order by passage ID. eligible_families contains the sorted unique study families whose applicability is direct.",
   "type": "object",
   "additionalProperties": false,
@@ -38,6 +38,10 @@
     "LedgerEntry": {
       "type": "object",
       "additionalProperties": false,
+      "oneOf": [
+        {"$ref": "casebook.schema.json#/$defs/BibliographyRequired"},
+        {"$ref": "casebook.schema.json#/$defs/BibliographyAbsent"}
+      ],
       "required": ["passage_id", "source_id", "source_file", "family_id", "reason", "quote", "start", "end", "source_sha256", "estimate", "scope"],
       "properties": {
         "passage_id": {"$ref": "casebook.schema.json#/$defs/Text"},
@@ -49,6 +53,9 @@
         "start": {"$ref": "casebook.schema.json#/$defs/Offset"},
         "end": {"$ref": "casebook.schema.json#/$defs/Offset"},
         "source_sha256": {"$ref": "casebook.schema.json#/$defs/Digest"},
+        "citation": {"$ref": "casebook.schema.json#/$defs/Text"},
+        "url": {"$ref": "casebook.schema.json#/$defs/PublicationURL"},
+        "license": {"$ref": "casebook.schema.json#/$defs/Text"},
         "estimate": {"$ref": "casebook.schema.json#/$defs/Estimate"},
         "scope": {"$ref": "casebook.schema.json#/$defs/Scope"}
       }
