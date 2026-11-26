@@ -248,7 +248,7 @@ def create_server(service: DossierService, *, literature: bool = False, discover
                        "timeouts offline from a compatible cached capture within your chosen time window. "
                        "Use recover_discovery to find donors across this server's cache. It defaults to offline.")
         instructions = f"{instructions} {instruction}" if instructions else instruction
-    server = FastMCP("MedExtract Evidence Dossier", tools=tools, instructions=instructions)
+    server = FastMCP("MedExtract Biomarker Evidence", tools=tools, instructions=instructions)
 
     if discovery:
         @server.resource("dossier://discovery/{search_id}/candidates.tsv", mime_type="text/tab-separated-values",

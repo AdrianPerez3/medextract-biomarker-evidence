@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "medextract-evidence-dossier"
 version = "0.2.0a2"
-description = "Research biomarker questions with PubMed and Europe PMC, read published evidence passages and replay signed reviews using a Python CLI or MCP server."
+description = "Search PubMed and Europe PMC for biomarker evidence, trace findings to published passages, and verify signed reviews with a Python CLI or MCP server."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{name = "MedExtract Evidence Dossier contributors"}]

@@ -11,7 +11,7 @@ from .evidence import example_directory
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="medextract-dossier mcp",
-                                     description="Run the evidence dossier MCP server over stdio.")
+                                     description="Run the MedExtract Biomarker Evidence MCP server over stdio.")
     examples = parser.add_mutually_exclusive_group()
     examples.add_argument("--casebook", "--example", dest="example", type=Path, help="operator-selected annotated casebook directory")
     examples.add_argument("--no-example", action="store_true", help="start a recipient without a casebook")
