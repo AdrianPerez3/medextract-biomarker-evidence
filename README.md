@@ -116,6 +116,8 @@ The first command reports `effect_estimate_reported`. Omitting the decisive pass
 
 ## Testing and citation
 
+Does following references from an included paper find more studies than continuing a PubMed search? Run the ten-question benchmark offline from a Git checkout to compare the two strategies at the same screening workload. [Citation-supplement benchmark](https://github.com/AdrianPerez3/medextract-biomarker-evidence/tree/main/benchmarks/citation-supplement)
+
 Run the offline tests, including deterministic provider fixtures, following the contribution guide. Live indexes, article access and network availability can change independently of a software release. [Contribution guide](CONTRIBUTING.md) · [Cite the software](CITATION.cff) · [Security policy](SECURITY.md)
 
 ## License and attribution
