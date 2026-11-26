@@ -1,4 +1,4 @@
-# Operating MedExtract Evidence Dossier
+# Operating MedExtract Biomarker Evidence
 
 Use the literature tools for discovery and passage retrieval. Use the offline review tools for a casebook whose sources and annotations a reviewer has checked. The two operations are distinct: rerunning a live query can retrieve different publications; replaying a signed review checks the frozen source bytes. [Biomarker research quick start](../README.md#ask-a-biomarker-question-from-an-mcp-client)
 

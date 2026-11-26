@@ -1,12 +1,12 @@
-# MedExtract Evidence Dossier — biomarker literature research for MCP and Python
+# MedExtract Biomarker Evidence
 
-Ask a population-level question about a biomarker and trace the evidence back to published papers. MedExtract Evidence Dossier lets a Model Context Protocol (MCP) client search **PubMed and Europe PMC**, inspect the citations returned by each, and locate passages in openly licensed full text. A reviewer can also freeze an annotated casebook, sign it and let a recipient independently replay its decisions offline.
+Search **PubMed and Europe PMC** for studies that address a biomarker question, then trace findings to passages in openly licensed articles. MedExtract Biomarker Evidence provides a Python CLI and a Model Context Protocol (MCP) server for this workflow. Reviewers can save an annotated set of studies, sign their review, and share it for independent verification offline.
 
 This is a research preview. The live tools retrieve records and passages. A researcher or the calling AI client must assess whether the study design, population and outcome answer the question. Scientific accuracy on a held-out literature set and clinical use have not been validated.
 
 ## Ask a biomarker question from an MCP client
 
-From a copy of the repository on macOS or Linux, install the server with Python 3.11 or later.
+From a copy of the repository on macOS or Linux, install the server with Python 3.11 or later. The Python distribution is named `medextract-evidence-dossier`.
 
 ```sh
 python3 -m venv .venv
