@@ -1,0 +1,234 @@
+{
+  "capture_date_utc": "2026-11-26",
+  "selection": "Historical review topics chosen from titles before inspecting results. Eight diagnostic topics from CLEF TAR 2017 and two intervention topics from Cochrane.",
+  "native_search": "One PubMed ESearch relevance page, quoted concept terms OR within each group and AND across groups, publication dates from 1800 through the topic year.",
+  "trigger": "Record the first historical inclusion in native order within the first 100 unique PMIDs. If none qualifies, continue in native order after the initial 100.",
+  "continuation": "Keep the next 50 native PMIDs. For the remaining 10, compare native order with up to 10 unique citations of the original seed, then refill from native order. Exclude every paper in the prefix and the shared 50. Compare at the same number of positions if a native page is exhausted.",
+  "backward_lookup": "Try PubMed ELink pubmed_pubmed_refs first. When it supplies zero usable records, try the seed DOI's Crossref deposit, with exact DOI-to-PubMed matches. Dates from PubMed; only known publication years through the topic cutoff are eligible. Keep provider order, at most 100 candidate identifiers per provider as applicable. One generation only.",
+  "labels": "Unjudged when a PMID has no published decision. Count known diagnostic inclusions by report within topic. Count intervention inclusions by distinct study family within topic. For the final ten, remove families already found in the prefix or shared 50. For the entire continuation remove families already found in the prefix.",
+  "topics": [
+    {
+      "cohort": "diagnostic",
+      "topic": "CD007394",
+      "reference_review": "CD007394",
+      "concept_groups": [
+        [
+          "galactomannan"
+        ],
+        [
+          "aspergillosis",
+          "Aspergillus"
+        ]
+      ],
+      "publication_year_ceiling": 2016,
+      "seed_pmid": null,
+      "native_page_size": 500,
+      "citation_provider": "no_trigger",
+      "citation_requests": 0
+    },
+    {
+      "cohort": "diagnostic",
+      "topic": "CD009593",
+      "reference_review": "CD009593",
+      "concept_groups": [
+        [
+          "Xpert",
+          "GeneXpert",
+          "MTB/RIF"
+        ],
+        [
+          "tuberculosis",
+          "Mycobacterium tuberculosis"
+        ]
+      ],
+      "publication_year_ceiling": 2016,
+      "seed_pmid": "21943862",
+      "native_page_size": 500,
+      "citation_provider": "none",
+      "citation_requests": 3
+    },
+    {
+      "cohort": "diagnostic",
+      "topic": "CD008760",
+      "reference_review": "CD008760",
+      "concept_groups": [
+        [
+          "capsule endoscopy",
+          "capsule endoscope"
+        ],
+        [
+          "oesophageal varices",
+          "esophageal varices",
+          "portal hypertension"
+        ]
+      ],
+      "publication_year_ceiling": 2016,
+      "seed_pmid": "18435461",
+      "native_page_size": 94,
+      "citation_provider": "crossref",
+      "citation_requests": 7
+    },
+    {
+      "cohort": "diagnostic",
+      "topic": "CD008803",
+      "reference_review": "CD008803",
+      "concept_groups": [
+        [
+          "optic nerve head",
+          "retinal nerve fiber layer",
+          "retinal nerve fibre layer"
+        ],
+        [
+          "glaucoma"
+        ]
+      ],
+      "publication_year_ceiling": 2016,
+      "seed_pmid": "22914498",
+      "native_page_size": 500,
+      "citation_provider": "pubmed",
+      "citation_requests": 2
+    },
+    {
+      "cohort": "diagnostic",
+      "topic": "CD010023",
+      "reference_review": "CD010023",
+      "concept_groups": [
+        [
+          "scaphoid"
+        ],
+        [
+          "fracture",
+          "fractures"
+        ],
+        [
+          "magnetic resonance",
+          "computed tomography",
+          "bone scintigraphy"
+        ]
+      ],
+      "publication_year_ceiling": 2016,
+      "seed_pmid": "8753688",
+      "native_page_size": 439,
+      "citation_provider": "pubmed",
+      "citation_requests": 2
+    },
+    {
+      "cohort": "diagnostic",
+      "topic": "CD010173",
+      "reference_review": "CD010173",
+      "concept_groups": [
+        [
+          "oral cancer",
+          "oral cavity cancer",
+          "oral malignancy",
+          "potentially malignant disorders"
+        ],
+        [
+          "screening",
+          "visual examination",
+          "oral examination"
+        ]
+      ],
+      "publication_year_ceiling": 2016,
+      "seed_pmid": null,
+      "native_page_size": 500,
+      "citation_provider": "no_trigger",
+      "citation_requests": 0
+    },
+    {
+      "cohort": "diagnostic",
+      "topic": "CD010775",
+      "reference_review": "CD010775",
+      "concept_groups": [
+        [
+          "Montreal Cognitive Assessment",
+          "MoCA"
+        ],
+        [
+          "dementia",
+          "Alzheimer disease"
+        ]
+      ],
+      "publication_year_ceiling": 2016,
+      "seed_pmid": "22228824",
+      "native_page_size": 459,
+      "citation_provider": "crossref",
+      "citation_requests": 7
+    },
+    {
+      "cohort": "diagnostic",
+      "topic": "CD007431",
+      "reference_review": "CD007431",
+      "concept_groups": [
+        [
+          "lumbar radiculopathy",
+          "sciatica",
+          "lumbar disc herniation"
+        ],
+        [
+          "physical examination",
+          "straight leg raise",
+          "clinical examination"
+        ]
+      ],
+      "publication_year_ceiling": 2016,
+      "seed_pmid": "18391677",
+      "native_page_size": 343,
+      "citation_provider": "crossref",
+      "citation_requests": 5
+    },
+    {
+      "cohort": "intervention",
+      "topic": "haemoglobin-transfusion-threshold",
+      "reference_review": "27731885",
+      "concept_groups": [
+        [
+          "red blood cell transfusion",
+          "red cell transfusion",
+          "blood transfusion"
+        ],
+        [
+          "transfusion threshold",
+          "transfusion trigger",
+          "restrictive",
+          "liberal"
+        ]
+      ],
+      "publication_year_ceiling": 2016,
+      "seed_pmid": "9971864",
+      "native_page_size": 500,
+      "citation_provider": "crossref",
+      "citation_requests": 5
+    },
+    {
+      "cohort": "intervention",
+      "topic": "ovarian-reserve-fsh-dose",
+      "reference_review": "29388198",
+      "concept_groups": [
+        [
+          "ovarian reserve",
+          "anti-Mullerian hormone",
+          "antimullerian hormone",
+          "antral follicle count"
+        ],
+        [
+          "gonadotropin",
+          "gonadotrophin",
+          "follicle stimulating hormone",
+          "FSH"
+        ],
+        [
+          "in vitro fertilization",
+          "in vitro fertilisation",
+          "IVF",
+          "ICSI"
+        ]
+      ],
+      "publication_year_ceiling": 2018,
+      "seed_pmid": "23953069",
+      "native_page_size": 500,
+      "citation_provider": "crossref",
+      "citation_requests": 7
+    }
+  ]
+}
