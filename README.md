@@ -4,6 +4,27 @@ Search **PubMed and Europe PMC** for studies that address a biomarker question, 
 
 This is a research preview. The live tools retrieve records and passages. A researcher or the calling AI client must assess whether the study design, population and outcome answer the question. Scientific accuracy on a held-out literature set and clinical use have not been validated.
 
+## How it works
+
+```mermaid
+flowchart TD
+    accTitle: From a biomarker question to a review
+    accDescr: A researcher searches PubMed and Europe PMC from the CLI or an MCP client. They can keep a citation for follow-up or read passages from a paper with a supported open license. The researcher decides what the study supports and collects the evidence in a casebook. They can then sign and share the review for offline verification.
+
+    question(["Ask a biomarker question<br/>via the CLI or an MCP client"])
+    search["Find papers in PubMed<br/>and Europe PMC"]
+    citation["Keep the citation<br/>for follow-up"]
+    passages["Read passages with<br/>their section and source"]
+    review["You assess the findings<br/>and prepare a casebook"]
+    share(["Sign and share the review<br/>for offline verification"])
+
+    question --> search
+    search -->|Eligible full text| passages
+    search -->|Citation only| citation
+    passages --> review
+    review -. Optional .-> share
+```
+
 ## Ask a biomarker question from an MCP client
 
 From a copy of the repository on macOS or Linux, install the server with Python 3.11 or later. The Python distribution is named `medextract-evidence-dossier`.
