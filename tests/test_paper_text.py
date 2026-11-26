@@ -288,3 +288,121 @@ def test_decimal_query_preserves_numeric_value(monkeypatch):
     passages = paper_text.read_paper("PMC1234", "0.80")["passages"]
     assert [p["text"] for p in passages] == ["The example ratio was 0.80."]
     assert passages[0]["matched_terms"] == ["0.80"]
+
+
+@pytest.mark.parametrize(("terms", "label", "value"), [
+    ("adjusted RR", "primary endpoint", "0.87"),
+    ("adjusted risk ratio", "primary endpoint", "0.87"),
+    ("secondary adjusted RR", "secondary outcome", "0.72"),
+    ("adjusted RR subgroup", "subgroup", "1.06"),
+    ("adjusted RR admissions", "admissions", "1.14"),
+])
+def test_adjusted_risk_ratio_prefers_requested_estimate(monkeypatch, terms, label, value):
+    sentences = [
+        "For the secondary outcome, the adjusted RR was 0.72 (95% CI 0.64–0.80).",
+        "For the primary endpoint, the adjusted relative risk was 0.87 (95% CI 0.81–0.93).",
+        "In the prespecified subgroup, the adjusted RR was 1.06 (95% CI 0.91–1.18).",
+        "For admissions, the adjusted risk ratio was 1.14 (95% CI 0.92–1.24).",
+    ]
+    paragraph = " ".join(sentences)
+    provide(monkeypatch, article(body=f"<body><p>We estimated relative risks (RRs).</p>"
+                             f"<sec><title>Results</title><p>{paragraph}</p></sec></body>"))
+    passage, = paper_text.read_paper("PMC1234", terms, 1)["passages"]
+    assert passage["text"] == next(s for s in sentences if label in s and value in s)
+    loc = passage["locator"]
+    assert paragraph[loc["start"]:loc["end"]] == passage["text"]
+    assert loc["paragraph_sha256"] == sha256(paragraph.encode()).hexdigest()
+    assert set(passage["matched_terms"]) <= set(paper_text._words(passage["text"]))
+
+
+def test_adjusted_ratio_query_respects_secondary_section_title(monkeypatch):
+    body = """<body><p>Risk ratios (RRs) were estimated.</p><sec><title>Results</title>
+    <sec><title>Primary endpoint</title><p>The adjusted RR was 0.87.</p></sec>
+    <sec><title>Safety</title><p>The adjusted relative risk was 1.11.</p></sec>
+    </sec></body>"""
+    provide(monkeypatch, article(body=body))
+    passage, = paper_text.read_paper("PMC1234", "safety adjusted RR", 1)["passages"]
+    assert passage["text"] == "The adjusted relative risk was 1.11."
+    assert passage["section"][-1] == "Safety"
+
+
+def test_adjusted_ratio_long_sentence_retains_point_estimate_and_interval(monkeypatch):
+    paragraph = ("Among the followed participants " + "with recorded follow-up " * 23
+                 + "the adjusted RR was 1.04 (95% CI 0.96–1.12), " + "with details recorded " * 24 + "elsewhere.")
+    provide(monkeypatch, article(body=f"<body><p>{paragraph}</p></body>"))
+    passage, = paper_text.read_paper("PMC1234", "adjusted RR", 1)["passages"]
+    assert "adjusted RR was 1.04 (95% CI 0.96–1.12)" in passage["text"]
+    loc = passage["locator"]
+    assert paragraph[loc["start"]:loc["end"]] == passage["text"]
+    assert len(passage["text"]) <= 420
+
+
+def test_adjusted_ratio_prose_keeps_protocol_language(monkeypatch):
+    text = "An adjusted RR will be estimated for the primary endpoint."
+    provide(monkeypatch, article(body=f"<body><sec><title>Methods</title><p>{text}</p></sec></body>"))
+    passage, = paper_text.read_paper("PMC1234", "adjusted RR", 1)["passages"]
+    assert passage["text"] == text
+    assert set(passage) == {"text", "section", "matched_terms", "locator"}
+
+
+@pytest.mark.parametrize("definition", [
+    "We estimated rate ratios (RRs) and absolute risk reductions (ARRs).",
+    "RR was undefined in this document.",
+    "One analysis used risk ratios (RRs); another used rate ratios (RRs).",
+])
+def test_ambiguous_rr_is_not_expanded_to_risk_ratio(monkeypatch, definition):
+    body = f"""<body><p>{definition}</p><sec><title>Results</title>
+    <p>The primary endpoint had adjusted RR 1.32 and ARR 0.03.</p>
+    <p>The adjusted relative risk was 0.97.</p></sec></body>"""
+    provide(monkeypatch, article(body=body))
+    passage, = paper_text.read_paper("PMC1234", "adjusted risk ratio", 1)["passages"]
+    assert passage["text"] == "The adjusted relative risk was 0.97."
+    passage, = paper_text.read_paper("PMC1234", "adjusted RR", 1)["passages"]
+    assert "adjusted RR 1.32" in passage["text"]
+
+
+def test_specific_terms_stay_local_to_an_estimate_in_a_long_sentence(monkeypatch):
+    paragraph = ("Participants assigned to the first group had an adjusted RR 0.71 (95% CI 0.61–0.81), "
+                 + "with more detailed assessments " * 5
+                 + "while development of a rash had an adjusted RR 1.12 (95% CI 0.99–1.21), "
+                 + "as recorded through follow-up " * 9 + "in all sites.")
+    provide(monkeypatch, article(body=f"<body><p>{paragraph}</p></body>"))
+    passage, = paper_text.read_paper("PMC1234", "rash adjusted RR", 1)["passages"]
+    assert "rash had an adjusted RR 1.12 (95% CI 0.99–1.21)" in passage["text"]
+
+
+def test_intention_to_treat_query_finds_authors_itt_estimate(monkeypatch):
+    body = """<body><sec><title>Results</title>
+    <p>For the subgroup, the adjusted RR was 0.72.</p>
+    <p>For the ITT primary outcome, the adjusted RR was 0.87.</p></sec></body>"""
+    provide(monkeypatch, article(body=body))
+    passage, = paper_text.read_paper("PMC1234", "intention-to-treat primary endpoint adjusted RR", 1)["passages"]
+    assert passage["text"] == "For the ITT primary outcome, the adjusted RR was 0.87."
+    assert passage["matched_terms"] == ["primary", "adjusted", "rr"]
+
+
+def test_adjusted_ratio_without_requested_scope_keeps_literal_partial_matches(monkeypatch):
+    body = """<body><p>Risk ratios (RRs) were estimated.</p><sec><title>Results</title>
+    <p>The secondary outcome had an adjusted RR of 0.91.</p>
+    <p>The primary outcome had an adjusted relative risk of 0.72.</p></sec></body>"""
+    provide(monkeypatch, article(body=body))
+    passage, = paper_text.read_paper("PMC1234", "vision adjusted RR", 1)["passages"]
+    assert passage["text"] == "The secondary outcome had an adjusted RR of 0.91."
+    assert passage["matched_terms"] == ["adjusted", "rr"]
+
+
+def test_short_form_requires_a_definition_in_eligible_prose(monkeypatch):
+    normal = "We estimated the adjusted risk ratio (aRR)."
+    for definition, expect_short in [
+        (f"<p>{normal}</p>", True),
+        (f"<fig><caption><p>{normal}</p></caption></fig>", False),
+        ("<p>We estimated absolute risk reduction (ARR).</p>", False),
+    ]:
+        body = f"""<body>{definition}<sec><title>Results</title>
+        <p>The recorded outcome had aRR 1.04.</p>
+        <p>The adjusted relative risk was 0.98.</p></sec></body>"""
+        provide(monkeypatch, article(body=body))
+        passage, = paper_text.read_paper("PMC1234", "adjusted relative risk", 1)["passages"]
+        assert ("1.04" in passage["text"]) == expect_short
+        if expect_short:
+            assert passage["matched_terms"] == []

@@ -3,12 +3,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import stat
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, suppress
 from pathlib import Path
 import sys
+from typing import TYPE_CHECKING
 
 from .comparison import make_comparison
 from .presentation import render_text
 from .evidence import example_directory, load_casebook
+
+
+if TYPE_CHECKING:
+    from .discovery import DiscoverySnapshot
 
 
 def _write_line(text: str) -> None:
@@ -125,8 +134,229 @@ def _literature(command: str, arguments: list[str]) -> int:
     return 1 if result["status"] == "unavailable" else 0
 
 
+def _discover(arguments: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="medextract-dossier discover",
+                                     description="Export a bounded screening set from PubMed and Europe PMC.")
+    parser.add_argument("--question", required=True, help="public research question retained in the local manifest")
+    parser.add_argument("--concept", action="append", nargs="+", required=True, metavar="PHRASE",
+                        help="public synonyms for one concept sent to the indexes; supply 2–6 groups")
+    parser.add_argument("--depth", type=int, default=100, help="results per provider and branch (1–100)")
+    parser.add_argument("--include-title-search", action="store_true",
+                        help="add a search requiring the first concept in the title")
+    parser.add_argument("--until-year", type=int, help="inclusive publication year ceiling")
+    parser.add_argument("--profile", choices=("pmid_indexed", "all_indexed"), default="pmid_indexed",
+                        help="PMID-indexed records (default), or include all Europe PMC sources")
+    parser.add_argument("--out", required=True, type=Path, help="new directory for candidates.tsv and search.json")
+    args = parser.parse_args(arguments)
+    from .discovery import DiscoveryRequest
+    from .discovery_providers import collect_discovery
+
+    try:
+        request = DiscoveryRequest(args.question, args.concept, args.depth, args.include_title_search,
+                                   args.until_year, args.profile)
+    except ValueError as exc:
+        print(f"Invalid discovery request: {exc}", file=sys.stderr)
+        return 2
+    return _export_discovery(args.out, lambda: collect_discovery(request))
+
+
+_DISCOVERY_FILES = ("search.json", "candidates.tsv")
+_MAX_CACHE_ENTRIES = 1024
+_MAX_DONOR_EXPORTS = 256
+
+
+@contextmanager
+def _discovery_directory(path: Path | str, *, dir_fd: int | None = None):
+    from .discovery_recovery import RecoveryError
+
+    if os.open not in os.supports_dir_fd or os.scandir not in os.supports_fd:
+        raise RecoveryError("Local donor directory scans require macOS or Linux.")
+    try:
+        directory = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dir_fd)
+    except OSError:
+        raise RecoveryError("Cannot open the discovery directory. Check the supplied folder and permissions.") from None
+    try:
+        yield directory
+    finally:
+        os.close(directory)
+
+
+def _read_discovery_export(source: Path = Path("."), *, dir_fd: int | None = None) -> tuple[str, str]:
+    from .discovery import MAX_SNAPSHOT_BYTES
+    from .discovery_recovery import RecoveryError
+
+    parts = []
+    remaining = MAX_SNAPSHOT_BYTES
+    flags = (os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NONBLOCK", 0)
+             | getattr(os, "O_NOFOLLOW", 0))
+    for name in _DISCOVERY_FILES:
+        try:
+            with os.fdopen(os.open(source / name, flags, dir_fd=dir_fd), "rb") as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_size > remaining:
+                    raise RecoveryError("Supply regular search.json and candidates.tsv files totalling at most 2 MiB.")
+                data = stream.read(info.st_size + 1)
+                if len(data) != info.st_size:
+                    raise RecoveryError("The source changed during reading. Use a complete saved discovery export.")
+            parts.append(data.decode("utf-8"))
+        except (OSError, UnicodeError):
+            raise RecoveryError("Cannot read the source. Supply a complete UTF-8 discovery export.") from None
+        remaining -= len(data)
+    return parts[0], parts[1]
+
+
+def _has_discovery_member(directory: int) -> bool:
+    for name in _DISCOVERY_FILES:
+        try:
+            os.stat(name, dir_fd=directory, follow_symlinks=False)
+        except FileNotFoundError:
+            continue
+        return True
+    return False
+
+
+def _cached_discovery_exports(cache: Path, destination: Path) -> Iterator[tuple[str, str]]:
+    from .discovery_recovery import RecoveryError
+
+    exports = 0
+    with _discovery_directory(cache) as directory, os.scandir(directory) as entries:
+        if os.path.samestat(os.fstat(directory), destination.stat(follow_symlinks=False)):
+            raise RecoveryError("Supply an existing cache directory separate from the new output directory.")
+        for count, entry in enumerate(entries, 1):
+            if count > _MAX_CACHE_ENTRIES:
+                raise RecoveryError(f"The cache exceeds the limit of {_MAX_CACHE_ENTRIES} immediate entries.")
+            if entry.is_symlink():
+                raise RecoveryError("The discovery cache cannot contain symbolic links among its immediate entries.")
+            if not entry.is_dir(follow_symlinks=False):
+                continue
+            with _discovery_directory(entry.name, dir_fd=directory) as child:
+                if not _has_discovery_member(child):
+                    continue
+                exports += 1
+                if exports > _MAX_DONOR_EXPORTS:
+                    raise RecoveryError(f"The cache exceeds the limit of {_MAX_DONOR_EXPORTS} discovery exports.")
+                yield _read_discovery_export(dir_fd=child)
+
+
+def _recover_discovery(arguments: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="medextract-dossier recover-discovery",
+                                     description="Recover timed-out searches from matching local exports.")
+    parser.add_argument("parent", type=Path, help="saved discovery directory with timed-out searches")
+    parser.add_argument("--cache-dir", required=True, type=Path, metavar="DIR",
+                        help=f"scan immediate children for saved exports (up to {_MAX_DONOR_EXPORTS} exports "
+                             f"and {_MAX_CACHE_ENTRIES} directory entries)")
+    parser.add_argument("--max-gap-seconds", required=True, type=int, metavar="N",
+                        help="maximum allowed capture gap in seconds (0 or greater)")
+    parser.add_argument("--lookup-at", metavar="WHEN",
+                        help="measure donor age from now or an explicit timezone-aware ISO timestamp (offline only "
+                             "for explicit timestamps). The default measures the gap from the parent capture.")
+    parser.add_argument("--fetch-missing", action="store_true",
+                        help="contact the providers once per unresolved timed-out search (default: offline)")
+    parser.add_argument("--out", required=True, type=Path, help="new directory for the linked discovery export")
+    args = parser.parse_args(arguments)
+    from .discovery_recovery import auto_recover_discovery
+
+    def acquire() -> DiscoverySnapshot:
+        with _discovery_directory(args.parent) as directory:
+            parent = _read_discovery_export(dir_fd=directory)
+        return auto_recover_discovery(*parent, _cached_discovery_exports(args.cache_dir, args.out),
+                                      max_gap_seconds=args.max_gap_seconds, lookup_at=args.lookup_at,
+                                      fetch_missing=args.fetch_missing)
+
+    return _export_discovery(args.out, acquire)
+
+
+def _retry_discovery(arguments: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="medextract-dossier retry-discovery",
+                                     description="Retry timed-out searches and save a linked discovery export.")
+    parser.add_argument("source", type=Path, help="saved discovery directory containing search.json and candidates.tsv")
+    parser.add_argument("--out", required=True, type=Path, help="new directory for the recovery export")
+    args = parser.parse_args(arguments)
+    from .discovery_recovery import recover_discovery
+
+    return _export_discovery(args.out, lambda: recover_discovery(*_read_discovery_export(args.source)))
+
+
+def _reuse_discovery(arguments: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="medextract-dossier reuse-discovery",
+                                     description="Fill timed-out searches offline using a compatible saved export.")
+    parser.add_argument("parent", type=Path, help="saved discovery directory with timed-out searches")
+    parser.add_argument("--from", dest="donor", required=True, type=Path, metavar="DONOR",
+                        help="saved discovery directory supplying complete search results")
+    parser.add_argument("--max-gap-seconds", required=True, type=int, metavar="INT",
+                        help="maximum allowed time difference between matching captures, in seconds (0 or greater)")
+    parser.add_argument("--out", required=True, type=Path, help="new directory for the linked discovery export")
+    args = parser.parse_args(arguments)
+    from .discovery_recovery import reuse_discovery
+
+    def acquire() -> DiscoverySnapshot:
+        return reuse_discovery(*_read_discovery_export(args.parent), *_read_discovery_export(args.donor),
+                               max_gap_seconds=args.max_gap_seconds)
+
+    return _export_discovery(args.out, acquire)
+
+
+def _export_discovery(out: Path, acquire: Callable[[], DiscoverySnapshot]) -> int:
+    from .discovery_recovery import RecoveryError
+
+    try:
+        out.mkdir(mode=0o700)
+    except FileExistsError:
+        print("Discovery needs a new output directory. Choose an unused name.", file=sys.stderr)
+        return 2
+    except OSError:
+        print("Cannot create the discovery directory. Check its parent and permissions.", file=sys.stderr)
+        return 2
+
+    # Only remove members this invocation actually created. Other files may have
+    # been placed in the directory while the providers were being contacted.
+    created = []
+    try:
+        snapshot = acquire()
+        summary = snapshot.summary()
+        summary.pop("candidates_uri")
+        summary.pop("manifest_uri")
+        summary.update(candidates_file="candidates.tsv", manifest_file="search.json")
+        output = json.dumps(summary, ensure_ascii=False, allow_nan=False)
+        for name, content in (("candidates.tsv", snapshot.tsv), (".search.json.part", snapshot.manifest)):
+            member = out / name
+            with member.open("xb") as stream:
+                created.append(member)
+                stream.write(content.encode("utf-8"))
+        # The directory was exclusively reserved. Expose the completion marker
+        # only after both streams close successfully.
+        os.link(created[-1], out / "search.json")
+    except (OSError, ValueError, RuntimeError) as exc:
+        for path in reversed(created):
+            with suppress(OSError):
+                path.unlink()
+        with suppress(OSError):
+            out.rmdir()
+        message = str(exc) if isinstance(exc, RecoveryError) else "Check the destination and retry with a fresh directory."
+        print(f"Discovery export failed. {message}", file=sys.stderr)
+        return 2
+    # The two public files are now complete. A leftover staging name after a
+    # cleanup error does not invalidate the published manifest.
+    with suppress(OSError):
+        created[-1].unlink()
+    try:
+        _write_line(output)
+    except OSError:
+        print("Discovery files were saved, but stdout could not receive the preview.", file=sys.stderr)
+        return 2
+    return 0 if summary["status"] == "ok" else 3
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["recover-discovery"]:
+        return _recover_discovery(argv[1:])
+    if argv[:1] == ["reuse-discovery"]:
+        return _reuse_discovery(argv[1:])
+    if argv[:1] == ["retry-discovery"]:
+        return _retry_discovery(argv[1:])
+    if argv[:1] == ["discover"]:
+        return _discover(argv[1:])
     if argv[:1] in (["research"], ["read-paper"]):
         return _literature(argv[0], argv[1:])
     if argv and argv[0] in ("keygen", "export", "verify"):
@@ -138,7 +368,9 @@ def main(argv: list[str] | None = None) -> int:
     if explicit_build:
         argv = argv[1:]
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
-        "Commands: research, read-paper, build, keygen, export, verify, mcp. Run a command with --help for its options."))
+        "Commands: discover, recover-discovery, retry-discovery, reuse-discovery, research, read-paper, build, "
+        "keygen, export, verify, mcp. "
+        "Run a command with --help for its options."))
     parser.add_argument("example", type=Path, nargs="?" if explicit_build else None,
                         default=example_directory() if explicit_build else None,
                         help="directory containing casebook.json and its sources (build defaults to the published CRP/SAA trial)")

@@ -10,17 +10,21 @@ import json
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from .bundle_format import BundleLimitError, BundlePathError, json_bytes
 from .comparison import make_comparison, review_identifier
 from .evidence import load_casebook_inputs, parse_json
+
+if TYPE_CHECKING:
+    from .discovery import DiscoveryRequest, DiscoverySnapshot
 
 _ALIAS = r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
 _DIGEST = r"[0-9a-f]{64}"
 BUNDLE_ID_PATTERN = rf"^(?:{_ALIAS}|review-{_DIGEST})$"
 
 _CACHE_ENTRIES = 16
+_MISSING_DISCOVERY = "Snapshot unavailable. Run discovery again or open a saved export."
 _REVIEW_INPUT_BYTES = 1024 * 1024
 _REVIEW_RECORD_BYTES = 4 * 1024 * 1024
 _BUNDLE_BYTES = 8 * 1024 * 1024
@@ -64,10 +68,18 @@ class _Cache(Generic[T]):
 
     def get(self, identifier: str, missing: str) -> T:
         with self._lock:
-            if not isinstance(identifier, str) or identifier not in self._items:
-                raise ServiceError(missing)
-            self._items.move_to_end(identifier)
-            return self._items[identifier]
+            return self._lookup(identifier, missing)
+
+    def get_with_peers(self, identifier: str, missing: str) -> tuple[T, tuple[T, ...]]:
+        with self._lock:
+            item = self._lookup(identifier, missing)
+            return item, tuple(value for key, value in self._items.items() if key != identifier)
+
+    def _lookup(self, identifier: str, missing: str) -> T:
+        if not isinstance(identifier, str) or identifier not in self._items:
+            raise ServiceError(missing)
+        self._items.move_to_end(identifier)
+        return self._items[identifier]
 
 
 @dataclass(frozen=True)
@@ -127,6 +139,68 @@ class DossierService:
             raise ServiceError("A registered bundle name must be a short portable identifier.")
         self._reviews: _Cache[_Review] = _Cache()
         self._receipts: _Cache[bytes] = _Cache()
+        self._discoveries: _Cache[DiscoverySnapshot] = _Cache()
+
+    def _save_discovery(self, snapshot: DiscoverySnapshot) -> dict:
+        summary = snapshot.summary()
+        self._discoveries.put(snapshot.search_id, snapshot)
+        return summary
+
+    def discover(self, request: DiscoveryRequest) -> dict:
+        from .discovery_providers import collect_discovery
+
+        with _operation("Cannot capture the requested discovery snapshot. Check the search bounds and retry."):
+            return self._save_discovery(collect_discovery(request))
+
+    def retry_discovery(self, search_id: str) -> dict:
+        from .discovery_recovery import RecoveryError, recover_discovery
+
+        parent = self.discovery_snapshot(search_id)
+        with _operation("Cannot recover this discovery snapshot. Open the saved export and try again."):
+            try:
+                child = recover_discovery(parent.manifest, parent.tsv)
+            except RecoveryError as exc:
+                raise ServiceError(str(exc)) from None
+            return self._save_discovery(child)
+
+    def reuse_discovery(self, search_id: str, donor_search_id: str, max_gap_seconds: int) -> dict:
+        from .discovery_recovery import RecoveryError, reuse_discovery
+
+        parent = self.discovery_snapshot(search_id)
+        donor = self.discovery_snapshot(donor_search_id)
+        with _operation("Cannot reuse these discovery snapshots. Check the saved exports."):
+            try:
+                child = reuse_discovery(parent.manifest, parent.tsv, donor.manifest, donor.tsv,
+                                        max_gap_seconds=max_gap_seconds)
+            except RecoveryError as exc:
+                raise ServiceError(str(exc)) from None
+            return self._save_discovery(child)
+
+    def discovery_snapshot(self, search_id: str) -> DiscoverySnapshot:
+        return self._discoveries.get(search_id, _MISSING_DISCOVERY)
+
+    def recover_discovery(self, search_id: str, max_gap_seconds: int, fetch_missing: bool = False,
+                          lookup_at: str | None = None) -> dict:
+        from .discovery_recovery import RecoveryError, auto_recover_discovery
+
+        parent, peers = self._discoveries.get_with_peers(search_id, _MISSING_DISCOVERY)
+        with _operation("Cannot recover this discovery snapshot. Check the cached captures and time window."):
+            try:
+                child = auto_recover_discovery(parent.manifest, parent.tsv,
+                                               ((item.manifest, item.tsv) for item in peers),
+                                               max_gap_seconds=max_gap_seconds, fetch_missing=fetch_missing,
+                                               lookup_at=lookup_at)
+            except RecoveryError as exc:
+                raise ServiceError(str(exc)) from None
+            return self._save_discovery(child)
+
+    def discovery_page(self, search_id: str, offset: int, limit: int, view: str) -> dict:
+        snapshot = self.discovery_snapshot(search_id)
+        try:
+            return snapshot.page(offset, limit, view)
+        except ValueError as exc:
+            # The pure page validator emits public recovery messages only.
+            raise ServiceError(str(exc)) from None
 
     def build(self, example_id: str = "configured", without_passages: list[str] | None = None) -> dict:
         if example_id not in ("configured", "marker-mx1") or self._example is None:

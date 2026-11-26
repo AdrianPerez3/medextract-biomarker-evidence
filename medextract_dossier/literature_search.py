@@ -1,12 +1,13 @@
 """Bounded bibliographic discovery through Europe PMC and PubMed."""
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from html import unescape
 from urllib.error import HTTPError
 from urllib.parse import quote, unquote, urlencode
 
-from .literature_http import fetch_bytes
+from . import literature_http
 
 
 _EUROPE_PMC = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
@@ -36,7 +37,7 @@ def _array(value) -> list:
 
 
 def _fetch(endpoint: str, **params) -> dict:
-    data = fetch_bytes(endpoint + "?" + urlencode(params))
+    data = literature_http.fetch_bytes(endpoint + "?" + urlencode(params))
     return _mapping(json.loads(data))
 
 
@@ -228,6 +229,25 @@ def _merge(pages: list[list]) -> list:
     return records
 
 
+def _prioritize_identifier(query, records):
+    prefix = query.lower()
+    if prefix.startswith(("10.", "doi:", "https://", "http://")):
+        kind = "doi"
+    elif prefix.startswith("pmc"):
+        kind = "pmcid"
+    elif prefix.startswith("pmid:"):
+        kind = "pmid"
+    else:
+        return None
+    value = _identifier(kind, query)
+    if value is None:
+        return None
+    # Keep the provider order for ties and for every related citation.
+    records.sort(key=lambda record: record[kind] != value)
+    return {"kind": kind, "value": value,
+            "matches_in_fetched_pages": sum(record[kind] == value for record in records)}
+
+
 def search_literature(question: str, search_terms: str | None = None, limit: int = 5) -> dict:
     """Search ranked first pages of public indexes for a public research question."""
     query = _query_text(question, "question")
@@ -236,18 +256,24 @@ def search_literature(question: str, search_terms: str | None = None, limit: int
     if type(limit) is not int or not 1 <= limit <= 20:
         raise ValueError("limit must be an integer from 1 to 20.")
 
+    # Run PubMed's dependent requests on the caller, using one worker for Europe PMC.
+    # Joining it here also bounds the lifetime of requests when a caller exits early.
+    with literature_http.search_slots, ThreadPoolExecutor(max_workers=1) as worker:
+        europe_pmc = worker.submit(_provider, _europe_pmc, query, limit)
+        pubmed = _provider(_pubmed, query, limit)
+
     providers = {}
     pages = []
-    for name, search in (("europe_pmc", _europe_pmc), ("pubmed", _pubmed)):
-        report, page = _provider(search, query, limit)
+    for name, (report, page) in (("europe_pmc", europe_pmc.result()), ("pubmed", pubmed)):
         total = report["total_hits"]
         report["more_than_limit"] = None if total is None else total > limit
         providers[name] = report
         pages.append(page)
     records = _merge(pages)
+    identifier = _prioritize_identifier(query, records)
     statuses = {report["status"] for report in providers.values()}
     status = statuses.pop() if len(statuses) == 1 else "partial"
-    return {
+    response = {
         "question": question, "query": query, "status": status,
         "retrieved_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "limit": limit, "providers": providers,
@@ -260,3 +286,10 @@ def search_literature(question: str, search_terms: str | None = None, limit: int
             "Search relevance, study design and clinical applicability require review of the underlying publications.",
         ],
     }
+    if identifier is not None:
+        response["requested_identifier"] = identifier
+        response["limitations"][0] = (
+            "Only the first ranked page from each index was requested. Exact identifier matches in "
+            "those pages appear first, followed by related records in provider rank order."
+        )
+    return response

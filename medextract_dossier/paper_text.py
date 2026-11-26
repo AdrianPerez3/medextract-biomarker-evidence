@@ -1,6 +1,6 @@
 """Locate reviewable prose in explicitly licensed articles from Europe PMC or NCBI PMC."""
 
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections import Counter
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -36,13 +36,29 @@ _SKIP_SECTIONS = re.compile(
     r"acknowledg(?:e)?ments?)\b", re.I
 )
 _RESULTS = re.compile(r"^(?:\d+[.\s]+)?(?:results|findings)\b", re.I)
+_ADJUSTED_RISK = re.compile(r"\badjusted\s+(?:(?P<rr>rr)|risk ratio|relative risk)\b(?!\s+reduction)", re.I)
+_RATIO_DEFINITION = re.compile(
+    r"\b(?P<adjusted>adjusted )?(?:(?P<risk>risk ratios?|relative risks?)|rate ratios?|relative rates?|"
+    r"respiratory rates?|response rates?|absolute risk reductions?)\s*[\[(](?P<short>a?rr)s?[\])]", re.I,
+)
+_RISK_VALUE = re.compile(
+    rf"(?:{_ADJUSTED_RISK.pattern}(?:\s*[\[(]a?RR[\])])?|\b(?P<arr>(?-i:aRR))\b)"
+    r"\s*(?:[:=,]\s*)?(?:(?:of|was|is)\s+)?\d+(?:\.\d+)?(?![\w%]|\.\d|\s*%)", re.I,
+)
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
+_PRIMARY = re.compile(r"\bprimary (?:(?:safety|efficacy|composite) )?(?:outcomes?|end[ -]?points?|analysis)\b", re.I)
+_ITT = re.compile(r"\b(?:ITT|intent(?:ion)?[ ‐‑–-]to[ ‐‑–-]treat)\b", re.I)
+_OUTCOME = re.compile(r"\b(?:end[ -]?points?|outcomes?)\b", re.I)
+_SECONDARY = re.compile(r"\b(?:secondary|subgroups?|exploratory|post[ -]hoc|per[ -]protocol)\b", re.I)
 _NOTICE = re.compile(r"retract|correct|errat|concern|withdraw|remov|addendum", re.I)
 _RESTRICTED_RIGHTS = re.compile(
     r"\b(?:non[- ]?commercial|no[- ]?derivatives|share[- ]?alike|CC[- ]BY[- ](?:NC|ND|SA)|all rights reserved)\b",
     re.I,
 )
 _INTERPRETATION = (
-    "Passages are ranked by lexical overlap in the eligible body prose. Assess the study design, "
+    "Passages are lexical matches in eligible body prose. For adjusted risk ratio searches, ranking also "
+    "uses reported numeric expressions, section headings and endpoint wording. Matched terms are literal "
+    "query terms in the excerpt. Assess the study design, "
     "population, outcomes and publication notices in the linked article before interpreting a match."
 )
 
@@ -207,7 +223,7 @@ def _windows(paragraph):
         index = max(index + 1, bisect_right(ends, start + _QUOTE_CHARS // 2, lo=index))
 
 
-def _prose_windows(node, paragraph):
+def _prose_runs(node, paragraph):
     # A publisher may put an entire table inside the same p as a reported result.
     # Never bridge across it. Count its text toward offsets in the original p.
     runs = []
@@ -230,29 +246,114 @@ def _prose_windows(node, paragraph):
             continue
         offset = paragraph.index(text, offset)
         if eligible:
-            for start, end in _windows(text):
-                yield offset + start, offset + end
+            yield offset, text
         offset += len(text)
 
 
-def _passages(body, body_path, meta, terms, limit):
+def _risk_forms(body, query_form):
+    # RR can also mean rate ratio, and ARR can mean absolute risk reduction.
+    # Only expand an abbreviation that the authors define in eligible prose.
+    defined = set()
+    conflicts = set()
+    for node, _, _ in _paragraphs(body, "", []):
+        for _, prose in _prose_runs(node, _text(node)):
+            for definition in _RATIO_DEFINITION.finditer(prose):
+                short = definition["short"].casefold()
+                risk = definition["risk"] and (short == "rr" or definition["adjusted"])
+                (defined if risk else conflicts).add(short)
+    if query_form == "rr" and "rr" not in defined - conflicts:
+        return {"rr"}
+    return {"long"} | (defined - conflicts)
+
+
+def _estimate_windows(text, forms):
+    """Keep the author's sentence when possible, otherwise center on the stated estimate."""
+    start = 0
+    for end in [m.start() for m in _SENTENCE_BREAK.finditer(text)] + [len(text)]:
+        for estimate in _RISK_VALUE.finditer(text, start, end):
+            form = estimate.lastgroup or "long"
+            if form not in forms:
+                continue
+            if end - start <= _QUOTE_CHARS:
+                yield start, end, estimate
+                continue
+            left = max(start, min(estimate.start() - _QUOTE_CHARS // 2, end - _QUOTE_CHARS))
+            if left > start and text[left - 1] != " ":
+                space = text.find(" ", left, estimate.start())
+                left = estimate.start() if space < 0 else space + 1
+            right = min(left + _QUOTE_CHARS, end)
+            if right < end and not text[right].isspace():
+                right = text.rfind(" ", estimate.end(), right)
+            if right >= estimate.end():
+                yield left, right, estimate
+        start = end + 1
+
+
+def _scope_terms(text):
+    return set(_words(_OUTCOME.sub("outcome", _ITT.sub("ITT", text)))) - _STOPWORDS
+
+
+def _scored_windows(text, sections, terms, qualifiers, forms):
+    results = any(_RESULTS.match(section) for section in sections)
+    headings = " ".join(sections)
+    heading_terms = _scope_terms(headings) if qualifiers else set()
+    starts, ends = [], []
+    if forms:
+        general_scope = qualifiers <= {"primary", "outcome", "analysis", "itt", "overall"}
+        for start, end, estimate in _estimate_windows(text, forms):
+            if not qualifiers:
+                starts.append(estimate.start())
+                ends.append(estimate.end())
+            quote = text[start:end]
+            words = set(_words(quote))
+            matched = [term for term in terms if term in words]
+            requested = len(qualifiers & (_scope_terms(quote) | heading_terms)) if qualifiers else 0
+            if qualifiers and not requested:
+                continue
+            context = headings + " " + quote
+            # General endpoint labels can break ties. Named outcomes, populations
+            # or analyses must stand on their own matching words and headings.
+            overall = general_scope and not _SECONDARY.search(context)
+            distances = {}
+            if qualifiers:
+                for word in _WORD.finditer(quote):
+                    term = word.group().casefold().translate(_DASHES)
+                    if term in qualifiers:
+                        distance = abs(start + word.start() - estimate.start())
+                        distances[term] = min(distance, distances.get(term, distance))
+            score = (requested, True, results,
+                     bool(overall and _PRIMARY.search(context)), bool(overall and _ITT.search(context)),
+                     -sum(distances.values()))
+            yield score, start, end, matched
+    for start, end in _windows(text):
+        frequencies = Counter(_words(text[start:end]))
+        matched = [term for term in terms if term in frequencies]
+        if matched:
+            requested = len(qualifiers & (_scope_terms(text[start:end]) | heading_terms)) if qualifiers else 0
+            score = (requested, False, len(matched), results, sum(min(3, frequencies[w]) for w in matched))
+            # With no endpoint cue, retain neighboring estimates that fit together.
+            # Choosing one as the main result would require additional information.
+            if forms and not qualifiers and bisect_right(ends, end) - bisect_left(starts, start) > 1:
+                score = (0, True, results, False, False, 1)
+            yield score, start, end, matched
+
+
+def _passages(body, body_path, meta, terms, limit, measure):
     candidates = []
     seen = {_text(p) for p in meta.findall("abstract//p")}
+    forms, qualifiers = set(), set()
+    if measure:
+        forms = _risk_forms(body, measure.lastgroup or "long")
+        qualifiers = _scope_terms(measure.string[:measure.start()] + " " + measure.string[measure.end():])
     for node, path, sections in _paragraphs(body, body_path, []):
         paragraph = _text(node)
         if not paragraph or paragraph in seen:
             continue
-        results_section = any(_RESULTS.match(section) for section in sections)
         best = None
-        for start, end in _prose_windows(node, paragraph):
-            quote = paragraph[start:end]
-            frequencies = Counter(_words(quote))
-            matched = [term for term in terms if term in frequencies]
-            if not matched:
-                continue
-            score = (len(matched), results_section, sum(min(3, frequencies[w]) for w in matched))
-            if best is None or score > best[0]:
-                best = (score, start, end, matched)
+        for offset, text in _prose_runs(node, paragraph):
+            for score, start, end, matched in _scored_windows(text, sections, terms, qualifiers, forms):
+                if best is None or score > best[0]:
+                    best = (score, offset + start, offset + end, matched)
         if best:
             seen.add(paragraph)
             score, start, end, matched = best
@@ -374,6 +475,7 @@ def read_paper(pmcid: str, terms: str, limit: int = 3) -> dict:
     if result["license"] is None:
         result["status"] = "licence-not-supported"
         return result
-    result["passages"] = _passages(body, article_path + "/body[1]", meta, query, limit)
+    measure = _ADJUSTED_RISK.search(terms)
+    result["passages"] = _passages(body, article_path + "/body[1]", meta, query, limit, measure)
     result["status"] = "available" if result["passages"] else "no-term-match"
     return result

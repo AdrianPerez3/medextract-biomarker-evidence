@@ -6,6 +6,14 @@ Use **Security → Report a vulnerability** on the project's GitHub repository w
 
 ## Operating the local tool
 
+The `discover` command and the optional MCP `--discovery` mode send concept phrases and publication-date limits to the public literature indexes. The wider profile also sends public PMIDs to NCBI to retrieve identifiers. The screening question stays in the local snapshot. Anyone receiving the export can read the question, concepts and search details. Use public research questions and store exports in an operator-controlled directory. A discovery digest allows integrity checks on the export. Signed casebooks have a separate verification workflow.
+
+Retry exports you trust. The `retry-discovery` command and the `retry_discovery` MCP tool can resend the saved concept phrases to the provider whose search timed out. Recovery rebuilds the requests from those phrases and the saved search settings. The source digests detect changes to the export when compared with a previously trusted search ID. Someone who controls both files can create a new, internally consistent export.
+
+Offline response reuse reads two explicitly selected exports. Keep both original search IDs when auditing a derived result. The CLI reads the named directories and MCP accepts snapshot IDs from the server’s cache. The child manifest records which donor supplied each reused search branch.
+
+Automatic recovery checks complete local exports supplied by the operator. Restrict write access to the CLI cache directory and retain the original exports for provenance. The MCP tool searches only snapshots held by that server process. Enabling `--fetch-missing` or the MCP `fetch_missing` option sends unresolved search branches to their configured literature providers. [Operator guide](docs/operator-guide.md#find-a-saved-response-before-retrying)
+
 Run the stdio server as the OS user who owns the review. Its client can invoke every enabled tool, including signing if you configure a private key. Give a recipient only the public key and the bundle. Keep private keys and review stores in an owner-controlled directory outside the checkout, inputs, and exports. Restrict write access to the configured directories. Use a separate server process and state directory for each trust boundary.
 
 Obtain the producer's public key or confirm its fingerprint through an independent trusted channel. Retain the verified public keys for older bundles when rotating a signing key. A valid signature authenticates the signed bytes against the key you supplied. Source accuracy and the interpretation of a study still require review.

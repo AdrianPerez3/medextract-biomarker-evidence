@@ -40,6 +40,38 @@ Only send public research terms and paper identifiers. Article text is external 
 
 ## Run the same search from the CLI
 
+For screening beyond the first results, start the MCP server with `--discovery`. Use `discover_candidates` to collect papers and `get_discovery_page` to screen them. After a timeout, `recover_discovery` checks the server’s saved searches for a matching provider response. You can enable both `--literature` and `--discovery` together. The Python CLI can also save the full screening table without installing the MCP extra.
+
+```sh
+mkdir -p work/saved-searches
+python3 -m medextract_dossier discover \
+  --question "Which studies examine cystatin C in primary care?" \
+  --concept "cystatin C" --concept "primary care" "general practice" \
+  --out work/kidney-screen
+```
+
+Open `work/kidney-screen/candidates.tsv` to follow the paper links and inspect their original ranks. Check `work/kidney-screen/search.json` for the expressions, publication dates, provider outcomes and truncation. The default searches up to 100 records per provider and returns a ten-row preview. Use `--include-title-search` to add a second search anchored on the first concept. The default profile screens records with PubMed identifiers. The `--profile all_indexed` option also preserves other Europe PMC identifiers and unresolved records. [Screening, paging and export verification](docs/operator-guide.md#screen-a-discovery-snapshot)
+
+If a provider timed out, point the CLI at a directory containing saved discovery exports. This example checks for the same provider query within 60 seconds of the original timeout. It runs offline. The new manifest records the source of each reused response and identifies any unresolved branches. [Automatic recovery options](docs/operator-guide.md#find-a-saved-response-before-retrying)
+
+```sh
+python3 -m medextract_dossier recover-discovery work/kidney-screen \
+  --cache-dir work/saved-searches --max-gap-seconds 60 --out work/kidney-screen-checked
+```
+
+To ask the provider directly, retry from the saved export. The new directory contains the original successful results alongside the outcome of the retry. Its manifest records both capture times and links to the original search. [Recover a timed-out search](docs/operator-guide.md#recover-a-timed-out-search)
+
+```sh
+python3 -m medextract_dossier retry-discovery work/kidney-screen --out work/kidney-screen-retry
+```
+
+If another saved search completed the same provider query within your chosen time window, reuse its ranked results offline. In this example the successful capture must be within 60 seconds of the timeout. The new export links to both inputs and preserves the provider’s original capture time. [Match and reuse a saved search](docs/operator-guide.md#reuse-a-saved-provider-response)
+
+```sh
+python3 -m medextract_dossier reuse-discovery work/kidney-screen \
+  --from work/saved-searches/related-screen --max-gap-seconds 60 --out work/kidney-screen-reused
+```
+
 The literature commands use Python's standard library. Run this search from the checkout.
 
 ```sh
@@ -55,6 +87,10 @@ python3 -m medextract_dossier read-paper PMC5634538 --terms "reclassification" -
 ```
 
 Both commands emit JSON. Save it by redirecting output to a file. Record which search terms you used. Check the provider statuses before interpreting an empty result, and inspect the paper before citing a claim. Repeating a live search later can return different records.
+
+For discovery, group alternative biomarker names with `OR` and join the main concepts with `AND`. When reading a selected paper, include the outcome and follow-up in your terms. A request for “adjusted RR” alone can match several estimates in the same trial. The research guide shows which queries found the known studies, how passage ranking was tested and where coverage still falls short. [Retrieval quality and source selection](docs/retrieval-quality.md)
+
+If you already have a DOI, PMCID or `PMID: 42239972`, supply it as the whole search expression. The response reports how many fetched citations match that identifier and places them first. A count of zero can occur when an index is unavailable or its returned page omits the paper.
 
 ## Review a published document and sign the result
 

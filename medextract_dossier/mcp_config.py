@@ -17,6 +17,8 @@ def main(argv: list[str] | None = None) -> int:
     examples.add_argument("--no-example", action="store_true", help="start a recipient without a casebook")
     parser.add_argument("--literature", action="store_true",
                         help="enable online searches of public literature and openly licensed paper text")
+    parser.add_argument("--discovery", action="store_true",
+                        help="enable public concept searches with frozen candidate pages and exports")
     parser.add_argument("--output-dir", type=Path, help="parent for signed exports")
     parser.add_argument("--private-key", type=Path, help="existing producer signing key")
     parser.add_argument("--public-key", type=Path, help="independently obtained public verification key")
@@ -43,12 +45,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         casebook = args.example
-        if casebook is None and not args.no_example and not args.literature:
+        if casebook is None and not (args.no_example or args.literature or args.discovery):
             casebook = example_directory()
         service = DossierService(example=casebook,
                                  output_dir=args.output_dir, private_key=args.private_key,
                                  public_key=args.public_key, bundles=bundles)
-        run_server(service, literature=args.literature)
+        run_server(service, literature=args.literature, discovery=args.discovery)
     except (OSError, ValueError) as exc:
         print(f"Cannot start MCP server: {exc}", file=sys.stderr)
         return 2

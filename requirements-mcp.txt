@@ -1,5 +1,5 @@
 -r requirements-handoff.txt
-mcp>=1.27.2,<2
+mcp>=1.30.0,<2
 pydantic>=2.11,<3
 jsonschema>=4.20
 anyio>=4.5

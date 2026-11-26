@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "medextract-evidence-dossier"
-version = "0.2.0a1"
+version = "0.2.0a2"
 description = "Research biomarker questions with PubMed and Europe PMC, read published evidence passages and replay signed reviews using a Python CLI or MCP server."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,7 +25,7 @@ medextract-dossier-mcp = "medextract_dossier.mcp_config:main"
 
 [project.optional-dependencies]
 handoff = ["cryptography>=43"]
-mcp = ["cryptography>=43", "mcp>=1.27.2,<2", "pydantic>=2.11,<3", "jsonschema>=4.20", "anyio>=4.5"]
+mcp = ["cryptography>=43", "mcp>=1.30.0,<2", "pydantic>=2.11,<3", "jsonschema>=4.20", "anyio>=4.5"]
 
 [tool.hatch.build]
 # Each file in a local release candidate has been reviewed individually.
@@ -39,6 +39,7 @@ include = [
     "/README.md",
     "/SECURITY.md",
     "/docs/operator-guide.md",
+    "/docs/retrieval-quality.md",
     "/examples/crp-saa-trial/PROVENANCE.md",
     "/examples/crp-saa-trial/casebook.json",
     "/examples/crp-saa-trial/sources/result.txt",
@@ -55,6 +56,11 @@ include = [
     "/medextract_dossier/bundle_verify.py",
     "/medextract_dossier/comparison.py",
     "/medextract_dossier/decision.py",
+    "/medextract_dossier/discovery.py",
+    "/medextract_dossier/discovery_indexed.py",
+    "/medextract_dossier/discovery_mcp.py",
+    "/medextract_dossier/discovery_providers.py",
+    "/medextract_dossier/discovery_recovery.py",
     "/medextract_dossier/evidence.py",
     "/medextract_dossier/literature_http.py",
     "/medextract_dossier/literature_search.py",
@@ -73,13 +79,21 @@ include = [
     "/schemas/v1/casebook.schema.json",
     "/schemas/v1/comparison.schema.json",
     "/schemas/v1/decision.schema.json",
+    "/scripts/bench_literature_search.py",
     "/scripts/check_installed.py",
+    "/scripts/check_passage_retrieval.py",
     "/tests/test_adapter_entrypoints.py",
     "/tests/test_bundle_export.py",
     "/tests/test_bundle_signing.py",
     "/tests/test_bundle_verify.py",
     "/tests/test_bundle_workflow.py",
     "/tests/test_decision.py",
+    "/tests/test_discovery.py",
+    "/tests/test_discovery_automatic.py",
+    "/tests/test_discovery_providers.py",
+    "/tests/test_discovery_recovery.py",
+    "/tests/test_discovery_reuse.py",
+    "/tests/test_discovery_interface.py",
     "/tests/test_distribution.py",
     "/tests/test_example_contract.py",
     "/tests/test_example_workflow.py",

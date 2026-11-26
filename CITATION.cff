@@ -4,7 +4,7 @@ type: software
 title: MedExtract Evidence Dossier
 authors:
   - name: MedExtract Evidence Dossier contributors
-version: 0.2.0a1
+version: 0.2.0a2
 abstract: "A Python CLI and Model Context Protocol server for researching biomarker questions across PubMed and Europe PMC, locating passages in openly licensed articles, and verifying signed reviews of annotated evidence."
 keywords:
   - biomarker research
